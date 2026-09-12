@@ -218,7 +218,7 @@ setSelectedUnit(null);
 setPdfFile(null);
 setPdfInfo(null);
 setExtractedText("");
-setStudyNotes("");
+
 
 setTestQuestions([]);
 setTestAnswers({});
@@ -775,6 +775,29 @@ const handlePdfChange = async (event) => {
     );
   }
 };
+
+const removePdf = () => {
+  setPdfFile(null);
+  setPdfInfo(null);
+  setExtractedText("");
+  setAiNotes("");
+  setAiNotesError("");
+
+  if (selectedUnit) {
+    updateUnit(selectedUnit.id, {
+      pdf: null,
+    });
+  }
+
+  showMessage("PDF removed.");
+};
+const selectAnswer = (questionIndex, answer) => {
+  setTestAnswers((previous) => ({
+    ...previous,
+    [questionIndex]: answer,
+  }));
+};
+
 const goToNextQuestion = () => {
 if (currentQuestion < testQuestions.length - 1) {
 setCurrentQuestion(
@@ -2456,27 +2479,16 @@ const handleUnitPdfSave = () => {
 };
 
 const loadSelectedUnit = () => {
-if (!selectedUnit) {
-return;
-}
+  if (!selectedUnit) {
+    return;
+  }
 
-
-setStudyNotes(selectedUnit.notes || "");
-
-if (selectedUnit.pdf) {
-  setPdfInfo(selectedUnit.pdf);
-} else {
-  setPdfInfo(null);
-}
-
-
+  if (selectedUnit.pdf) {
+    setPdfInfo(selectedUnit.pdf);
+  } else {
+    setPdfInfo(null);
+  }
 };
-
-useEffect(() => {
-if (selectedUnit) {
-loadSelectedUnit();
-}
-}, [selectedUnit]);
 
 const renderUnit = () => {
 if (!selectedUnit) {
@@ -2577,36 +2589,7 @@ return (
         marginBottom: "20px",
       }}
     >
-      <section style={cardStyle}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            gap: "15px",
-            alignItems: "center",
-            marginBottom: "18px",
-          }}
-        >
-          <div>
-            <p
-              className="eyebrow"
-              style={{ marginBottom: "5px" }}
-            >
-              NOTES
-            </p>
-
-            <h2 style={{ margin: 0 }}>
-              Study notes
-            </h2>
-          </div>
-
-          <span style={{ fontSize: "25px" }}>
-            📝
-          </span>
-        </div>
-
-        
-      </section>
+    
 
       <section style={cardStyle}>
         <div
@@ -2641,7 +2624,143 @@ return (
         AI SHORT NOTES 
         ======================================================= */} 
  
-    <section 
+    
+ 
+
+
+        <label
+          style={{
+            display: "block",
+            padding: "28px 15px",
+            borderRadius: "14px",
+            border: itachiMode
+              ? "1px dashed #444"
+              : "1px dashed #cbd5e1",
+            textAlign: "center",
+            cursor: "pointer",
+            marginBottom: "15px",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "35px",
+              marginBottom: "8px",
+            }}
+          >
+            📤
+          </div>
+
+          <strong>
+            Choose a PDF
+          </strong>
+
+          <p
+            style={{
+              margin: "7px 0 0",
+              fontSize: "13px",
+              color: itachiMode
+                ? "#999999"
+                : "#64748b",
+            }}
+          >
+            Upload your study material
+          </p>
+
+          <input
+            type="file"
+            accept="application/pdf"
+            onChange={handlePdfChange}
+            style={{ display: "none" }}
+          />
+        </label>
+
+        {pdfInfo && (
+          <div
+            style={{
+              padding: "14px",
+              borderRadius: "12px",
+              background: itachiMode
+                ? "#202020"
+                : "#f8fafc",
+              marginBottom: "15px",
+            }}
+          >
+            <strong
+              style={{
+                display: "block",
+                wordBreak: "break-word",
+              }}
+            >
+              {pdfInfo.name}
+            </strong>
+
+            {pdfInfo.size && (
+              <span
+                style={{
+                  display: "block",
+                  marginTop: "5px",
+                  fontSize: "13px",
+                  color: itachiMode
+                    ? "#999999"
+                    : "#64748b",
+                }}
+              >
+                {(pdfInfo.size / 1024 / 1024).toFixed(
+                  2
+                )}{" "}
+                MB
+              </span>
+            )}
+          </div>
+        )}
+
+        <div
+          style={{
+            display: "flex",
+            gap: "8px",
+            flexWrap: "wrap",
+          }}
+        >
+          <button
+            type="button"
+            onClick={handleUnitPdfSave}
+            style={{
+              ...buttonStyle,
+              flex: 1,
+              background: itachiMode
+                ? "#ffffff"
+                : "#111827",
+              color: itachiMode
+                ? "#111111"
+                : "#ffffff",
+            }}
+          >
+            Save PDF
+          </button>
+
+          {pdfInfo && (
+            <button
+              type="button"
+              onClick={removePdf}
+              style={{
+                ...buttonStyle,
+                background: itachiMode
+                  ? "#242424"
+                  : "#ffffff",
+                color: itachiMode
+                  ? "#ffffff"
+                  : "#334155",
+                border: itachiMode
+                  ? "1px solid #333"
+                  : "1px solid #e2e8f0",
+              }}
+            >
+              Remove
+            </button>
+          )}
+        </div>
+
+        <section 
       style={{ 
         ...cardStyle, 
         marginTop: "20px", 
@@ -2795,140 +2914,7 @@ return (
         </div> 
       )} 
     </section> 
- 
-
-
-        <label
-          style={{
-            display: "block",
-            padding: "28px 15px",
-            borderRadius: "14px",
-            border: itachiMode
-              ? "1px dashed #444"
-              : "1px dashed #cbd5e1",
-            textAlign: "center",
-            cursor: "pointer",
-            marginBottom: "15px",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "35px",
-              marginBottom: "8px",
-            }}
-          >
-            📤
-          </div>
-
-          <strong>
-            Choose a PDF
-          </strong>
-
-          <p
-            style={{
-              margin: "7px 0 0",
-              fontSize: "13px",
-              color: itachiMode
-                ? "#999999"
-                : "#64748b",
-            }}
-          >
-            Upload your study material
-          </p>
-
-          <input
-            type="file"
-            accept="application/pdf"
-            onChange={handlePdfChange}
-            style={{ display: "none" }}
-          />
-        </label>
-
-        {pdfInfo && (
-          <div
-            style={{
-              padding: "14px",
-              borderRadius: "12px",
-              background: itachiMode
-                ? "#202020"
-                : "#f8fafc",
-              marginBottom: "15px",
-            }}
-          >
-            <strong
-              style={{
-                display: "block",
-                wordBreak: "break-word",
-              }}
-            >
-              {pdfInfo.name}
-            </strong>
-
-            {pdfInfo.size && (
-              <span
-                style={{
-                  display: "block",
-                  marginTop: "5px",
-                  fontSize: "13px",
-                  color: itachiMode
-                    ? "#999999"
-                    : "#64748b",
-                }}
-              >
-                {(pdfInfo.size / 1024 / 1024).toFixed(
-                  2
-                )}{" "}
-                MB
-              </span>
-            )}
-          </div>
-        )}
-
-        <div
-          style={{
-            display: "flex",
-            gap: "8px",
-            flexWrap: "wrap",
-          }}
-        >
-          <button
-            type="button"
-            onClick={handleUnitPdfSave}
-            style={{
-              ...buttonStyle,
-              flex: 1,
-              background: itachiMode
-                ? "#ffffff"
-                : "#111827",
-              color: itachiMode
-                ? "#111111"
-                : "#ffffff",
-            }}
-          >
-            Save PDF
-          </button>
-
-          {pdfInfo && (
-            <button
-              type="button"
-              onClick={removePdf}
-              style={{
-                ...buttonStyle,
-                background: itachiMode
-                  ? "#242424"
-                  : "#ffffff",
-                color: itachiMode
-                  ? "#ffffff"
-                  : "#334155",
-                border: itachiMode
-                  ? "1px solid #333"
-                  : "1px solid #e2e8f0",
-              }}
-            >
-              Remove
-            </button>
-          )}
-        </div>
+    
       </section>
     </div>
 
@@ -3003,6 +2989,14 @@ return (
 /* =======================================================
 TEST SCREEN
 ======================================================= */
+const resetTest = () => {
+  setTestQuestions([]);
+  setTestAnswers({});
+  setCurrentQuestion(0);
+  setTestTimeLeft(TEST_DURATION);
+  setTestStarted(false);
+  setTestResult(null);
+};
 
 const renderTest = () => {
 if (!testQuestions.length) {
