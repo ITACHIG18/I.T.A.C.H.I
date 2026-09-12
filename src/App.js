@@ -283,39 +283,76 @@ setAuthForm((previous) => ({
 };
 
 const handleLogin = async (event) => {
-event.preventDefault();
+  event.preventDefault();
 
+  clearMessages();
 
-clearMessages();
+  if (
+    !authForm.email.trim() ||
+    !authForm.password.trim()
+  ) {
+    showError("Please enter your email and password.");
+    return;
+  }
 
-if (!authForm.email.trim() || !authForm.password.trim()) {
-  showError("Please enter your email and password.");
-  return;
-}
+  setAuthLoading(true);
 
-setAuthLoading(true);
+  try {
+    const response = await axios.post(
+      `${API_URL}/auth/login`,
+      {
+        email: authForm.email.trim(),
+        password: authForm.password,
+      }
+    );
 
-try {
-  /*
-   * The backend can be connected here later.
-   * For now StudyMate keeps authentication locally so
-   * the application can continue working independently.
-   */
+    const token = response.data?.token;
+    const user = response.data?.user;
 
-  await new Promise((resolve) => setTimeout(resolve, 500));
+    if (!token) {
+      showError(
+        "Login succeeded, but no authentication token was returned."
+      );
+      return;
+    }
 
-  setIsAuthenticated(true);
-  setScreen("dashboard");
+    localStorage.setItem(
+      "studymate_token",
+      token
+    );
 
-  showMessage("Welcome back to StudyMate.");
-} catch (error) {
-  console.error("Login error:", error);
-  showError("Unable to log in. Please try again.");
-} finally {
-  setAuthLoading(false);
-}
+    if (user) {
+      localStorage.setItem(
+        "studymate_user",
+        JSON.stringify(user)
+      );
+    }
 
+    localStorage.setItem(
+      "studymate_authenticated",
+      "true"
+    );
 
+    setIsAuthenticated(true);
+    setScreen("dashboard");
+
+    showMessage(
+      `Welcome back${user?.name ? `, ${user.name}` : ""}.`
+    );
+
+  } catch (error) {
+    console.error(
+      "Login error:",
+      error
+    );
+
+    showError(
+      error.response?.data?.error ||
+        "Unable to log in. Please check your email and password."
+    );
+  } finally {
+    setAuthLoading(false);
+  }
 };
 
 const handleRegister = async (event) => {
@@ -381,15 +418,20 @@ try {
 };
 
 const handleLogout = () => {
-setIsAuthenticated(false);
-setScreen("dashboard");
+  localStorage.removeItem(
+    "studymate_token"
+  );
 
+  localStorage.removeItem(
+    "studymate_authenticated"
+  );
 
-clearMessages();
+  setIsAuthenticated(false);
+  setScreen("dashboard");
 
-showMessage("You have been logged out.");
+  clearMessages();
 
-
+  showMessage("You have been logged out.");
 };
 
 const getCurrentUser = () => {
@@ -738,14 +780,14 @@ const handlePdfChange = async (event) => {
     formData.append("file", file);
 
     const response = await axios.post(
-      `${API_URL}/upload-pdf`,
-      formData,
-      {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      }
-    );
+  `${API_URL}/upload-pdf`,
+  formData,
+  {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  }
+);
 
     const extractedText =
       response.data.text || "";
@@ -2398,7 +2440,6 @@ UNIT SCREEN
 ======================================================= */
 
 
-
 const generateShortNotes = async () => {
   setAiNotesError("");
 
@@ -2420,11 +2461,27 @@ const generateShortNotes = async () => {
   setAiNotes("");
 
   try {
+    const token = localStorage.getItem(
+      "studymate_token"
+    );
+
+    if (!token) {
+      setAiNotesError(
+        "Your session has expired. Please log in again."
+      );
+      return;
+    }
+
     const response = await axios.post(
       `${API_URL}/ai/short-notes`,
       {
         text: extractedText,
         topic: selectedUnit.name,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       }
     );
 
@@ -2447,6 +2504,7 @@ const generateShortNotes = async () => {
     setAiNotesLoading(false);
   }
 };
+
 const handleUnitPdfSave = () => {
   if (!selectedUnit) {
     showError("Please select a unit first.");
@@ -2914,7 +2972,7 @@ return (
         </div> 
       )} 
     </section> 
-    
+
       </section>
     </div>
 
