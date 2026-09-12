@@ -239,12 +239,18 @@ AUTHENTICATION STATE
 ======================================================= */
 
 const [isAuthenticated, setIsAuthenticated] = useState(() => {
-try {
-return localStorage.getItem("studymate_authenticated") === "true";
-} catch (error) {
-return false;
-}
+  try {
+    return localStorage.getItem("studymate_authenticated") === "true";
+  } catch (error) {
+    return false;
+  }
 });
+
+const [showVerification, setShowVerification] = useState(false);
+
+const [verificationEmail, setVerificationEmail] = useState("");
+
+const [verificationCode, setVerificationCode] = useState("");
 
 const [authMode, setAuthMode] = useState("login");
 
@@ -356,66 +362,157 @@ const handleLogin = async (event) => {
 };
 
 const handleRegister = async (event) => {
-event.preventDefault();
+  event.preventDefault();
 
+  clearMessages();
 
-clearMessages();
-
-if (
-  !authForm.name.trim() ||
-  !authForm.email.trim() ||
-  !authForm.password.trim()
-) {
-  showError("Please complete all fields.");
-  return;
-}
-
-if (authForm.password.length < 6) {
-  showError("Password must contain at least 6 characters.");
-  return;
-}
-
-setAuthLoading(true);
-
-try {
-  /*
-   * Local registration for the current StudyMate frontend.
-   * Backend authentication can be connected without changing
-   * the rest of the application.
-   */
-
-  await new Promise((resolve) => setTimeout(resolve, 500));
-
-  try {
-    localStorage.setItem(
-      "studymate_user",
-      JSON.stringify({
-        name: authForm.name.trim(),
-        email: authForm.email.trim(),
-      })
-    );
-  } catch (storageError) {
-    console.error(
-      "Could not save user:",
-      storageError
-    );
+  if (
+    !authForm.name.trim() ||
+    !authForm.email.trim() ||
+    !authForm.password.trim()
+  ) {
+    showError("Please complete all fields.");
+    return;
   }
 
-  setIsAuthenticated(true);
-  setScreen("dashboard");
+  if (authForm.password.length < 8) {
+    showError(
+      "Password must contain at least 8 characters."
+    );
+    return;
+  }
 
-  showMessage(
-    `Welcome to StudyMate, ${authForm.name.trim()}!`
-  );
-} catch (error) {
-  console.error("Registration error:", error);
-  showError("Unable to create your account.");
-} finally {
-  setAuthLoading(false);
-}
+  setAuthLoading(true);
 
+  try {
+    const response = await axios.post(
+      `${API_URL}/auth/register`,
+      {
+        name: authForm.name.trim(),
+        email: authForm.email.trim(),
+        password: authForm.password,
+      }
+    );
 
+    const email =
+      response.data?.email ||
+      authForm.email.trim();
+
+    setVerificationEmail(email);
+    setVerificationCode("");
+    setShowVerification(true);
+
+    showMessage(
+      response.data?.message ||
+        "Account created successfully. Check your email for the verification code."
+    );
+
+  } catch (error) {
+    console.error(
+      "Registration error:",
+      error
+    );
+
+    showError(
+      error.response?.data?.error ||
+        "Unable to create your account. Please try again."
+    );
+
+  } finally {
+    setAuthLoading(false);
+  }
 };
+const handleVerifyEmail = async (event) => {
+  event.preventDefault();
+
+  clearMessages();
+
+  if (!verificationEmail.trim()) {
+    showError("Email is required.");
+    return;
+  }
+
+  if (!verificationCode.trim()) {
+    showError("Please enter your verification code.");
+    return;
+  }
+
+  if (
+    !/^\d{6}$/.test(
+      verificationCode.trim()
+    )
+  ) {
+    showError(
+      "Verification code must be exactly 6 digits."
+    );
+    return;
+  }
+
+  setAuthLoading(true);
+
+  try {
+    const response = await axios.post(
+      `${API_URL}/auth/verify-email`,
+      {
+        email: verificationEmail.trim(),
+        code: verificationCode.trim(),
+      }
+    );
+
+    const token = response.data?.token;
+    const user = response.data?.user;
+
+    if (!token) {
+      showError(
+        "Email was verified, but no authentication token was returned."
+      );
+      return;
+    }
+
+    localStorage.setItem(
+      "studymate_token",
+      token
+    );
+
+    if (user) {
+      localStorage.setItem(
+        "studymate_user",
+        JSON.stringify(user)
+      );
+    }
+
+    localStorage.setItem(
+      "studymate_authenticated",
+      "true"
+    );
+
+    setShowVerification(false);
+    setVerificationCode("");
+    setIsAuthenticated(true);
+    setScreen("dashboard");
+
+    showMessage(
+      `Email verified successfully. Welcome to StudyMate${
+        user?.name ? `, ${user.name}` : ""
+      }.`
+    );
+
+  } catch (error) {
+    console.error(
+      "Email verification error:",
+      error
+    );
+
+    showError(
+      error.response?.data?.error ||
+        "Unable to verify your email. Please try again."
+    );
+
+  } finally {
+    setAuthLoading(false);
+  }
+};
+
 
 const handleLogout = () => {
   localStorage.removeItem(
@@ -1042,6 +1139,239 @@ fontSize: "15px",
 /* =======================================================
 LOGIN / REGISTER SCREEN
 ======================================================= */
+
+
+const renderVerificationScreen = () => {
+  return (
+    <main
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "30px 20px",
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: "480px",
+          ...cardStyle,
+        }}
+      >
+        <div
+          style={{
+            textAlign: "center",
+            marginBottom: "30px",
+          }}
+        >
+          <p
+            className="eyebrow"
+            style={{
+              marginBottom: "8px",
+            }}
+          >
+            EMAIL VERIFICATION
+          </p>
+
+          <h1
+            style={{
+              margin: 0,
+              fontSize: "32px",
+            }}
+          >
+            Verify your email
+          </h1>
+
+          <p
+            style={{
+              marginTop: "12px",
+              lineHeight: 1.6,
+              color: itachiMode
+                ? "#999999"
+                : "#64748b",
+            }}
+          >
+            We sent a 6-digit verification code
+            to:
+          </p>
+
+          <strong
+            style={{
+              display: "block",
+              marginTop: "8px",
+              wordBreak: "break-word",
+            }}
+          >
+            {verificationEmail}
+          </strong>
+        </div>
+
+        <form onSubmit={handleVerifyEmail}>
+          <label
+            style={{
+              display: "block",
+              marginBottom: "8px",
+              fontWeight: "700",
+            }}
+          >
+            Verification code
+          </label>
+
+          <input
+            type="text"
+            inputMode="numeric"
+            maxLength={6}
+            value={verificationCode}
+            onChange={(event) =>
+              setVerificationCode(
+                event.target.value.replace(
+                  /\D/g,
+                  ""
+                )
+              )
+            }
+            placeholder="Enter 6-digit code"
+            style={{
+              width: "100%",
+              boxSizing: "border-box",
+              padding: "15px",
+              borderRadius: "12px",
+              border: itachiMode
+                ? "1px solid #333"
+                : "1px solid #e2e8f0",
+              background: itachiMode
+                ? "#111111"
+                : "#ffffff",
+              color: itachiMode
+                ? "#ffffff"
+                : "#111827",
+              fontSize: "20px",
+              letterSpacing: "6px",
+              textAlign: "center",
+              outline: "none",
+            }}
+          />
+
+          <button
+            type="submit"
+            disabled={authLoading}
+            style={{
+              ...buttonStyle,
+              width: "100%",
+              marginTop: "18px",
+              background: itachiMode
+                ? "#ffffff"
+                : "#111827",
+              color: itachiMode
+                ? "#111111"
+                : "#ffffff",
+              opacity: authLoading ? 0.6 : 1,
+              cursor: authLoading
+                ? "not-allowed"
+                : "pointer",
+            }}
+          >
+            {authLoading
+              ? "Verifying..."
+              : "Verify email"}
+          </button>
+        </form>
+
+        <div
+          style={{
+            textAlign: "center",
+            marginTop: "20px",
+          }}
+        >
+          <button
+            type="button"
+            onClick={async () => {
+              clearMessages();
+
+              if (!verificationEmail.trim()) {
+                showError(
+                  "Email is required."
+                );
+                return;
+              }
+
+              setAuthLoading(true);
+
+              try {
+                const response =
+                  await axios.post(
+                    `${API_URL}/auth/resend-code`,
+                    {
+                      email:
+                        verificationEmail.trim(),
+                    }
+                  );
+
+                showMessage(
+                  response.data?.message ||
+                    "A new verification code has been sent."
+                );
+
+              } catch (error) {
+                console.error(
+                  "Resend verification error:",
+                  error
+                );
+
+                showError(
+                  error.response?.data?.error ||
+                    "Unable to resend the verification code."
+                );
+
+              } finally {
+                setAuthLoading(false);
+              }
+            }}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: itachiMode
+                ? "#ffffff"
+                : "#111827",
+              fontWeight: "700",
+              cursor: "pointer",
+              textDecoration: "underline",
+            }}
+          >
+            Resend verification code
+          </button>
+        </div>
+
+        <div
+          style={{
+            textAlign: "center",
+            marginTop: "15px",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setShowVerification(false);
+              setVerificationCode("");
+              clearMessages();
+            }}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: itachiMode
+                ? "#999999"
+                : "#64748b",
+              cursor: "pointer",
+            }}
+          >
+            ← Back to registration
+          </button>
+        </div>
+      </div>
+    </main>
+  );
+};
 
 const renderAuthScreen = () => {
 return (
