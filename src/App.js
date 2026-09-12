@@ -2,4700 +2,4619 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import "./App.css";
 
-// =========================================
-// CONSTANTS
-// =========================================
-
 const API_URL = "http://127.0.0.1:5000/api";
-
 const TEST_DURATION = 10 * 60;
 
-// =========================================
-// APP
-// =========================================
-
 function App() {
-  // =======================================
-  // NAVIGATION
-  // =======================================
-
-  const [activePage, setActivePage] =
-    useState("Dashboard");
-
-  // =======================================
-  // UNITS
-  // =======================================
+  const [screen, setScreen] = useState("dashboard");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
   const [units, setUnits] = useState(() => {
     try {
-      const savedUnits =
-        localStorage.getItem("studymate_units");
+      const savedUnits = localStorage.getItem("studymate_units");
 
       if (!savedUnits) {
         return [];
       }
 
-      const parsedUnits =
-        JSON.parse(savedUnits);
+      const parsedUnits = JSON.parse(savedUnits);
 
-      return Array.isArray(parsedUnits)
-        ? parsedUnits
-        : [];
+      return Array.isArray(parsedUnits) ? parsedUnits : [];
     } catch (error) {
-      console.error(
-        "Could not load saved units:",
-        error
-      );
-
+      console.error("Could not load saved units:", error);
       return [];
     }
   });
 
-  // =======================================
-  // SELECTED UNIT
-  // =======================================
+  const [selectedUnit, setSelectedUnit] = useState(null);
 
-  const [selectedUnit, setSelectedUnit] =
-    useState(null);
+  const [pdfFile, setPdfFile] = useState(null);
+  const [pdfInfo, setPdfInfo] = useState(null);
+  const [extractedText, setExtractedText] = useState("");
 
-  // =======================================
-  // ADD UNIT MODAL
-  // =======================================
+  const [studyNotes, setStudyNotes] = useState("");
 
-  const [showAddUnit, setShowAddUnit] =
-    useState(false);
+  const [testQuestions, setTestQuestions] = useState([]);
+  const [testAnswers, setTestAnswers] = useState({});
+  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [testTimeLeft, setTestTimeLeft] = useState(TEST_DURATION);
+  const [testStarted, setTestStarted] = useState(false);
+  const [testResult, setTestResult] = useState(null);
 
-  const [newUnitName, setNewUnitName] =
-    useState("");
+  const [reviewFilter, setReviewFilter] = useState("failed");
 
-  // =======================================
-  // PDF
-  // =======================================
+  const [history, setHistory] = useState(() => {
+    try {
+      const savedHistory = localStorage.getItem("studymate_history");
 
-  const [selectedFile, setSelectedFile] =
-    useState(null);
-
-  const [extractedText, setExtractedText] =
-    useState("");
-
-  const [uploading, setUploading] =
-    useState(false);
-
-  // =======================================
-  // AI NOTES
-  // =======================================
-
-  const [studyNotes, setStudyNotes] =
-    useState("");
-
-  const [generatingNotes, setGeneratingNotes] =
-    useState(false);
-
-  // =======================================
-  // TEST
-  // =======================================
-
-  const [testQuestions, setTestQuestions] =
-    useState([]);
-
-  const [testAnswers, setTestAnswers] =
-    useState({});
-
-  const [currentQuestion, setCurrentQuestion] =
-    useState(0);
-
-  const [testTimeLeft, setTestTimeLeft] =
-    useState(TEST_DURATION);
-
-  const [testStarted, setTestStarted] =
-    useState(false);
-
-  const [testFinished, setTestFinished] =
-    useState(false);
-
-  const [testGenerating, setTestGenerating] =
-    useState(false);
-
-  const [testScore, setTestScore] =
-    useState(null);
-
-  const [testResult, setTestResult] =
-    useState(null);
-
-  // =======================================
-  // TEST HISTORY
-  // =======================================
-
-  const [testHistory, setTestHistory] =
-    useState(() => {
-      try {
-        const savedHistory =
-          localStorage.getItem(
-            "studymate_test_history"
-          );
-
-        if (!savedHistory) {
-          return [];
-        }
-
-        const parsed =
-          JSON.parse(savedHistory);
-
-        return Array.isArray(parsed)
-          ? parsed
-          : [];
-      } catch (error) {
-        console.error(
-          "Could not load test history:",
-          error
-        );
-
+      if (!savedHistory) {
         return [];
       }
-    });
 
-  // =======================================
-  // SETTINGS
-  // =======================================
+      const parsedHistory = JSON.parse(savedHistory);
 
-  const [studyMode, setStudyMode] =
-    useState(() => {
-      return (
-        localStorage.getItem(
-          "studymate_study_mode"
-        ) || "Dark Crimson"
-      );
-    });
+      return Array.isArray(parsedHistory) ? parsedHistory : [];
+    } catch (error) {
+      console.error("Could not load history:", error);
+      return [];
+    }
+  });
 
-  const [notesStyle, setNotesStyle] =
-    useState(() => {
-      return (
-        localStorage.getItem(
-          "studymate_notes_style"
-        ) || "Short & Exam-Focused"
-      );
-    });
+  const [settings, setSettings] = useState(() => {
+    try {
+      const savedSettings = localStorage.getItem("studymate_settings");
 
-  const [autoSave, setAutoSave] =
-    useState(() => {
-      const saved =
-        localStorage.getItem(
-          "studymate_auto_save"
-        );
+      if (!savedSettings) {
+        return {
+          sound: true,
+          animations: true,
+        };
+      }
 
-      return saved === null
-        ? true
-        : saved === "true";
-    });
-
-  const [settingsMessage, setSettingsMessage] =
-    useState("");
-
-  // =======================================
-  // SAVE UNITS
-  // =======================================
+      return JSON.parse(savedSettings);
+    } catch (error) {
+      return {
+        sound: true,
+        animations: true,
+      };
+    }
+  });
 
   useEffect(() => {
-    if (!autoSave) {
-      return;
-    }
-
     try {
       localStorage.setItem(
         "studymate_units",
         JSON.stringify(units)
       );
     } catch (error) {
-      console.error(
-        "Could not save units:",
-        error
-      );
+      console.error("Could not save units:", error);
     }
-  }, [units, autoSave]);
-
-  // =======================================
-  // SAVE TEST HISTORY
-  // =======================================
-
-  useEffect(() => {
-    if (!autoSave) {
-      return;
-    }
-
-    try {
-      localStorage.setItem(
-        "studymate_test_history",
-        JSON.stringify(testHistory)
-      );
-    } catch (error) {
-      console.error(
-        "Could not save test history:",
-        error
-      );
-    }
-  }, [testHistory, autoSave]);
-
-  // =======================================
-  // SAVE SETTINGS
-  // =======================================
+  }, [units]);
 
   useEffect(() => {
     try {
       localStorage.setItem(
-        "studymate_study_mode",
-        studyMode
+        "studymate_history",
+        JSON.stringify(history)
       );
     } catch (error) {
-      console.error(
-        "Could not save study mode:",
-        error
-      );
+      console.error("Could not save history:", error);
     }
-  }, [studyMode]);
+  }, [history]);
 
   useEffect(() => {
     try {
       localStorage.setItem(
-        "studymate_notes_style",
-        notesStyle
+        "studymate_settings",
+        JSON.stringify(settings)
       );
     } catch (error) {
-      console.error(
-        "Could not save notes style:",
-        error
-      );
+      console.error("Could not save settings:", error);
     }
-  }, [notesStyle]);
+  }, [settings]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(
-        "studymate_auto_save",
-        String(autoSave)
-      );
-    } catch (error) {
-      console.error(
-        "Could not save auto-save setting:",
-        error
-      );
-    }
-  }, [autoSave]);
-
-  // =======================================
-  // SETTINGS MESSAGE
-  // =======================================
-
-  const showSettingsMessage = (message) => {
-    setSettingsMessage(message);
-
-    setTimeout(() => {
-      setSettingsMessage("");
-    }, 2500);
-  };
-
-  // =======================================
-  // RESET TEST STATE
-  // =======================================
-
-  const resetTestState = () => {
-    setTestQuestions([]);
-    setTestAnswers({});
-    setCurrentQuestion(0);
-    setTestTimeLeft(TEST_DURATION);
-    setTestStarted(false);
-    setTestFinished(false);
-    setTestScore(null);
-    setTestResult(null);
-  };
-
-  // =======================================
-  // ADD UNIT
-  // =======================================
-
-  const handleAddUnit = () => {
-    const trimmedName =
-      newUnitName.trim();
-
-    if (!trimmedName) {
-      alert(
-        "Please enter a unit name."
-      );
-
+    if (!testStarted) {
       return;
     }
 
-    const newUnit = {
-      id: Date.now(),
-      name: trimmedName,
-      notes: 0,
-      tests: 0,
-      score: null,
-      pdf: null,
-      extractedText: "",
-      studyNotes: "",
-    };
-
-    setUnits(
-      (previousUnits) => [
-        ...previousUnits,
-        newUnit,
-      ]
-    );
-
-    setNewUnitName("");
-    setShowAddUnit(false);
-  };
-
-  // =======================================
-  // DELETE UNIT
-  // =======================================
-
-  const handleDeleteUnit = (
-    unitId
-  ) => {
-    const confirmed =
-      window.confirm(
-        "Are you sure you want to delete this unit?"
-      );
-
-    if (!confirmed) {
+    if (testTimeLeft <= 0) {
+      finishTest();
       return;
     }
 
-    setUnits(
-      (previousUnits) =>
-        previousUnits.filter(
-          (unit) =>
-            unit.id !== unitId
-        )
-    );
+    const timer = setInterval(() => {
+      setTestTimeLeft((previous) => previous - 1);
+    }, 1000);
 
-    if (
-      selectedUnit?.id === unitId
-    ) {
-      setSelectedUnit(null);
-      setSelectedFile(null);
-      setExtractedText("");
-      setStudyNotes("");
+    return () => clearInterval(timer);
+  }, [testStarted, testTimeLeft]);
 
-      resetTestState();
-
-      setActivePage("Units");
-    }
+  const clearMessages = () => {
+    setMessage("");
+    setError("");
   };
 
-  // =======================================
-  // OPEN UNIT
-  // =======================================
-
-  const handleOpenUnit = (
-    unit
-  ) => {
-    setSelectedUnit(unit);
-
-    if (unit.pdf) {
-      setSelectedFile({
-        name:
-          unit.pdf.name ||
-          "Uploaded PDF",
-
-        size:
-          unit.pdf.size || 0,
-
-        type:
-          unit.pdf.type ||
-          "application/pdf",
-
-        filename:
-          unit.pdf.filename ||
-          "",
-
-        pages:
-          unit.pdf.pages || 0,
-      });
-    } else {
-      setSelectedFile(null);
-    }
-
-    setExtractedText(
-      unit.extractedText || ""
-    );
-
-    setStudyNotes(
-      unit.studyNotes || ""
-    );
-
-    resetTestState();
-
-    setActivePage("Unit");
+  const showMessage = (text) => {
+    setError("");
+    setMessage(text);
   };
 
-  // =======================================
-  // BACK TO UNITS
-  // =======================================
-
-  const handleBackToUnits = () => {
-    setSelectedUnit(null);
-    setSelectedFile(null);
-    setExtractedText("");
-    setStudyNotes("");
-
-    resetTestState();
-
-    setActivePage("Units");
+  const showError = (text) => {
+    setMessage("");
+    setError(text);
   };
 
-  // =======================================
-  // PDF UPLOAD
-  // =======================================
+  const formatTime = (seconds) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
 
-  const handlePdfUpload = async (
-    event
-  ) => {
-    const file =
-      event.target.files?.[0];
-
-    if (!file) {
-      return;
-    }
-
-    if (
-      file.type !==
-        "application/pdf" &&
-      !file.name
-        .toLowerCase()
-        .endsWith(".pdf")
-    ) {
-      alert(
-        "Please select a PDF file."
-      );
-
-      event.target.value = "";
-
-      return;
-    }
-
-    setSelectedFile(file);
-    setExtractedText("");
-    setStudyNotes("");
-
-    try {
-      setUploading(true);
-
-      const formData =
-        new FormData();
-
-      formData.append(
-        "file",
-        file
-      );
-
-      const response =
-        await axios.post(
-          `${API_URL}/upload-pdf`,
-          formData,
-          {
-            headers: {
-              "Content-Type":
-                "multipart/form-data",
-            },
-          }
-        );
-
-      const extractedPdfText =
-        response.data.text || "";
-
-      const savedPdf = {
-        name: file.name,
-        size: file.size,
-        type:
-          file.type ||
-          "application/pdf",
-
-        filename:
-          response.data
-            .filename || "",
-
-        pages:
-          response.data.pages || 0,
-      };
-
-      setExtractedText(
-        extractedPdfText
-      );
-
-      setStudyNotes("");
-
-      setSelectedFile({
-        name: file.name,
-        size: file.size,
-        type:
-          file.type ||
-          "application/pdf",
-
-        filename:
-          response.data
-            .filename || "",
-
-        pages:
-          response.data.pages || 0,
-      });
-
-      setUnits(
-        (previousUnits) =>
-          previousUnits.map(
-            (unit) =>
-              unit.id ===
-              selectedUnit?.id
-                ? {
-                    ...unit,
-                    pdf: savedPdf,
-                    extractedText:
-                      extractedPdfText,
-                    studyNotes: "",
-                    notes: 0,
-                  }
-                : unit
-          )
-      );
-
-      setSelectedUnit(
-        (previousUnit) => {
-          if (!previousUnit) {
-            return previousUnit;
-          }
-
-          return {
-            ...previousUnit,
-            pdf: savedPdf,
-            extractedText:
-              extractedPdfText,
-            studyNotes: "",
-            notes: 0,
-          };
-        }
-      );
-
-      alert(
-        `PDF processed successfully!\n\nPages: ${
-          response.data.pages || 0
-        }`
-      );
-    } catch (error) {
-      console.error(
-        "PDF upload error:",
-        error
-      );
-
-      const errorMessage =
-        error.response?.data
-          ?.error ||
-        "Something went wrong while processing the PDF.";
-
-      alert(errorMessage);
-
-      setSelectedFile(null);
-    } finally {
-      setUploading(false);
-
-      event.target.value = "";
-    }
+    return `${String(minutes).padStart(2, "0")}:${String(
+      remainingSeconds
+    ).padStart(2, "0")}`;
   };
 
-  // =======================================
-  // GENERATE AI NOTES
-  // =======================================
+  /* =======================================================
+CLEAR HISTORY
+======================================================= */
 
-  const handleGenerateNotes =
-    async () => {
-      if (!extractedText.trim()) {
-        alert(
-          "Please upload and process a PDF first."
-        );
+const handleClearHistory = () => {
+if (history.length === 0) {
+showMessage("There is no test history to clear.");
+return;
+}
 
-        return;
-      }
 
-      try {
-        setGeneratingNotes(true);
-        setStudyNotes("");
+const confirmed = window.confirm(
+  "Are you sure you want to clear all test history?"
+);
 
-        const response =
-          await axios.post(
-            `${API_URL}/generate-notes`,
-            {
-              text: extractedText,
-            }
-          );
+if (!confirmed) {
+  return;
+}
 
-        const notes =
-          response.data.notes || "";
+setHistory([]);
+showMessage("Test history cleared.");
 
-        setStudyNotes(notes);
 
-        setUnits(
-          (previousUnits) =>
-            previousUnits.map(
-              (unit) =>
-                unit.id ===
-                selectedUnit?.id
-                  ? {
-                      ...unit,
-                      studyNotes:
-                        notes,
-                      notes: notes
-                        ? 1
-                        : 0,
-                    }
-                  : unit
-            )
-        );
+};
 
-        setSelectedUnit(
-          (previousUnit) => {
-            if (!previousUnit) {
-              return previousUnit;
-            }
+/* =======================================================
+RESET STUDYMATE
+======================================================= */
 
-            return {
-              ...previousUnit,
-              studyNotes: notes,
-              notes: notes
-                ? 1
-                : 0,
-            };
-          }
-        );
-      } catch (error) {
-        console.error(
-          "AI notes error:",
-          error
-        );
+const handleResetStudyMate = () => {
+const confirmed = window.confirm(
+"This will remove your saved units, history, and settings. Continue?"
+);
 
-        const errorMessage =
-          error.response?.data
-            ?.error ||
-          "Something went wrong while generating study notes.";
 
-        alert(errorMessage);
-      } finally {
-        setGeneratingNotes(false);
-      }
-    };
+if (!confirmed) {
+  return;
+}
 
-  // =======================================
-  // GENERATE TEST
-  // =======================================
+localStorage.removeItem("studymate_units");
+localStorage.removeItem("studymate_history");
+localStorage.removeItem("studymate_settings");
 
-  const handleGenerateTest =
-    async (options = {}) => {
-      const materialText =
-        options.text ||
-        extractedText;
+setUnits([]);
+setHistory([]);
 
-      if (!materialText.trim()) {
-        alert(
-          "Please upload and process a PDF first."
-        );
+setSettings({
+  sound: true,
+  animations: true,
+});
 
-        return;
-      }
+setSelectedUnit(null);
+setPdfFile(null);
+setPdfInfo(null);
+setExtractedText("");
+setStudyNotes("");
 
-      // Save previous questions BEFORE
-      // resetting the test state.
-      const previousQuestions =
-        testQuestions.map(
-          (question) =>
-            question.question
-        );
+setTestQuestions([]);
+setTestAnswers({});
+setCurrentQuestion(0);
+setTestTimeLeft(TEST_DURATION);
+setTestStarted(false);
+setTestResult(null);
 
-      try {
-        resetTestState();
+setScreen("dashboard");
 
-        setTestGenerating(true);
+showMessage("StudyMate has been reset.");
 
-        setActivePage("Test");
 
-        const attemptId =
-          `${Date.now()}-${Math.random()
-            .toString(36)
-            .substring(2, 10)}`;
+};
 
-        console.log(
-          "Generating fresh test attempt:",
-          attemptId
-        );
+/* =======================================================
+AUTHENTICATION STATE
+======================================================= */
 
-        console.log(
-          "Previous questions being sent:",
-          previousQuestions.length
-        );
+const [isAuthenticated, setIsAuthenticated] = useState(() => {
+try {
+return localStorage.getItem("studymate_authenticated") === "true";
+} catch (error) {
+return false;
+}
+});
 
-        const response =
-          await axios.post(
-            `${API_URL}/generate-test`,
-            {
-              text: materialText,
+const [authMode, setAuthMode] = useState("login");
 
-              attempt:
-                attemptId,
+const [authForm, setAuthForm] = useState({
+name: "",
+email: "",
+password: "",
+});
 
-              previousQuestions:
-                previousQuestions,
-            }
-          );
+const [authLoading, setAuthLoading] = useState(false);
 
-        console.log(
-          "Generate test response:",
-          response.data
-        );
+useEffect(() => {
+try {
+localStorage.setItem(
+"studymate_authenticated",
+isAuthenticated ? "true" : "false"
+);
+} catch (error) {
+console.error(
+"Could not save authentication state:",
+error
+);
+}
+}, [isAuthenticated]);
 
-        const questions =
-          response.data.questions ||
-          [];
+const handleAuthInput = (event) => {
+const { name, value } = event.target;
 
-        if (
-          !Array.isArray(
-            questions
-          )
-        ) {
-          throw new Error(
-            "The server returned an invalid test format."
-          );
-        }
 
-        if (
-          questions.length !== 30
-        ) {
-          throw new Error(
-            `The test contained ${questions.length} questions instead of 30.`
-          );
-        }
+setAuthForm((previous) => ({
+  ...previous,
+  [name]: value,
+}));
 
-        const validQuestions =
-          questions.every(
-            (question) =>
-              question &&
-              typeof question.question ===
-                "string" &&
-              Array.isArray(
-                question.options
-              ) &&
-              question.options
-                .length === 4 &&
-              typeof question.answer ===
-                "number" &&
-              Number.isInteger(
-                question.answer
-              ) &&
-              question.answer >= 0 &&
-              question.answer <= 3
-          );
 
-        if (!validQuestions) {
-          throw new Error(
-            "The AI returned an invalid question format."
-          );
-        }
+};
 
-        setTestQuestions(
-          questions
-        );
+const handleLogin = async (event) => {
+event.preventDefault();
 
-        setTestAnswers({});
 
-        setCurrentQuestion(0);
+clearMessages();
 
-        setTestTimeLeft(
-          TEST_DURATION
-        );
+if (!authForm.email.trim() || !authForm.password.trim()) {
+  showError("Please enter your email and password.");
+  return;
+}
 
-        setTestStarted(false);
+setAuthLoading(true);
 
-        setTestFinished(false);
+try {
+  /*
+   * The backend can be connected here later.
+   * For now StudyMate keeps authentication locally so
+   * the application can continue working independently.
+   */
 
-        setTestScore(null);
+  await new Promise((resolve) => setTimeout(resolve, 500));
 
-        setTestResult(null);
+  setIsAuthenticated(true);
+  setScreen("dashboard");
 
-        console.log(
-          "30 fresh test questions successfully loaded."
-        );
-      } catch (error) {
-        console.error(
-          "Test generation error:",
-          error
-        );
+  showMessage("Welcome back to StudyMate.");
+} catch (error) {
+  console.error("Login error:", error);
+  showError("Unable to log in. Please try again.");
+} finally {
+  setAuthLoading(false);
+}
 
-        console.error(
-          "Server response:",
-          error.response?.data
-        );
 
-        const errorMessage =
-          error.response?.data
-            ?.error ||
-          error.message ||
-          "Something went wrong while generating the test.";
+};
 
-        alert(errorMessage);
+const handleRegister = async (event) => {
+event.preventDefault();
 
-        setActivePage("Unit");
-      } finally {
-        setTestGenerating(false);
-      }
-    };
 
-  // =======================================
-  // START TEST
-  // =======================================
+clearMessages();
 
-  const handleStartTest = () => {
-    if (
-      testQuestions.length !== 30
-    ) {
-      alert(
-        "The test is not ready yet."
-      );
+if (
+  !authForm.name.trim() ||
+  !authForm.email.trim() ||
+  !authForm.password.trim()
+) {
+  showError("Please complete all fields.");
+  return;
+}
 
-      return;
-    }
+if (authForm.password.length < 6) {
+  showError("Password must contain at least 6 characters.");
+  return;
+}
 
-    setTestStarted(true);
+setAuthLoading(true);
 
-    setTestFinished(false);
+try {
+  /*
+   * Local registration for the current StudyMate frontend.
+   * Backend authentication can be connected without changing
+   * the rest of the application.
+   */
 
-    setTestTimeLeft(
-      TEST_DURATION
-    );
+  await new Promise((resolve) => setTimeout(resolve, 500));
 
-    setCurrentQuestion(0);
-
-    setTestAnswers({});
-
-    setTestScore(null);
-
-    setTestResult(null);
-  };
-
-  // =======================================
-  // SELECT ANSWER
-  // =======================================
-
-  const handleSelectAnswer = (
-    optionIndex
-  ) => {
-    if (testFinished) {
-      return;
-    }
-
-    setTestAnswers(
-      (previousAnswers) => ({
-        ...previousAnswers,
-        [currentQuestion]:
-          optionIndex,
+  try {
+    localStorage.setItem(
+      "studymate_user",
+      JSON.stringify({
+        name: authForm.name.trim(),
+        email: authForm.email.trim(),
       })
     );
-  };
-
-  // =======================================
-  // FINISH TEST
-  // =======================================
-
-  const finishTest = () => {
-    if (
-      testFinished ||
-      testQuestions.length === 0
-    ) {
-      return;
-    }
-
-    let correctAnswers = 0;
-
-    testQuestions.forEach(
-      (question, index) => {
-        if (
-          testAnswers[index] ===
-          question.answer
-        ) {
-          correctAnswers++;
-        }
-      }
+  } catch (storageError) {
+    console.error(
+      "Could not save user:",
+      storageError
     );
+  }
 
-    const percentage =
-      Math.round(
-        (correctAnswers /
-          testQuestions.length) *
-          100
-      );
+  setIsAuthenticated(true);
+  setScreen("dashboard");
 
-    let resultTitle = "";
-    let resultMessage = "";
+  showMessage(
+    `Welcome to StudyMate, ${authForm.name.trim()}!`
+  );
+} catch (error) {
+  console.error("Registration error:", error);
+  showError("Unable to create your account.");
+} finally {
+  setAuthLoading(false);
+}
 
-    if (percentage >= 90) {
-      resultTitle =
-        "SHARINGAN MASTERED";
 
-      resultMessage =
-        "Your understanding is exceptionally strong. You saw the material clearly.";
-    } else if (
-      percentage >= 75
-    ) {
-      resultTitle =
-        "STRONG PERCEPTION";
+};
 
-      resultMessage =
-        "Excellent work. Your understanding of the material is strong.";
-    } else if (
-      percentage >= 50
-    ) {
-      resultTitle =
-        "KEEP TRAINING";
+const handleLogout = () => {
+setIsAuthenticated(false);
+setScreen("dashboard");
 
-      resultMessage =
-        "You have the foundation. Review the weaker areas and try again.";
-    } else {
-      resultTitle =
-        "REVIEW THE MATERIAL";
 
-      resultMessage =
-        "Go back through your study notes before attempting the test again.";
-    }
+clearMessages();
 
-    setTestScore(
-      percentage
-    );
+showMessage("You have been logged out.");
 
-    setTestResult({
-      title: resultTitle,
-      message: resultMessage,
-      correct: correctAnswers,
-      total: testQuestions.length,
-    });
 
-    setTestFinished(true);
+};
 
-    setTestStarted(false);
+const getCurrentUser = () => {
+try {
+const savedUser = localStorage.getItem(
+"studymate_user"
+);
 
-    setUnits(
-      (previousUnits) =>
-        previousUnits.map(
-          (unit) =>
-            unit.id ===
-            selectedUnit?.id
-              ? {
-                  ...unit,
-                  tests:
-                    (unit.tests ||
-                      0) + 1,
-                  score:
-                    percentage,
-                }
-              : unit
-        )
-    );
 
-    setSelectedUnit(
-      (previousUnit) => {
-        if (!previousUnit) {
-          return previousUnit;
-        }
-
-        return {
-          ...previousUnit,
-          tests:
-            (previousUnit.tests ||
-              0) + 1,
-          score: percentage,
-        };
-      }
-    );
-
-    const historyItem = {
-      id: Date.now(),
-
-      unitId:
-        selectedUnit?.id ||
-        null,
-
-      unitName:
-        selectedUnit?.name ||
-        "Unknown Unit",
-
-      score: percentage,
-
-      correct:
-        correctAnswers,
-
-      total:
-        testQuestions.length,
-
-      date:
-        new Date().toLocaleString(),
+  if (!savedUser) {
+    return {
+      name: "Student",
+      email: "",
     };
+  }
 
-    setTestHistory(
-      (previousHistory) => [
-        historyItem,
-        ...previousHistory,
-      ]
-    );
+  const parsedUser = JSON.parse(savedUser);
+
+  return {
+    name: parsedUser.name || "Student",
+    email: parsedUser.email || "",
   };
+} catch (error) {
+  return {
+    name: "Student",
+    email: "",
+  };
+}
 
-  // =======================================
-  // TIMER
-  // =======================================
+
+};
+
+const currentUser = getCurrentUser();
+
+/* =======================================================
+SIMPLE NAVIGATION
+======================================================= */
+
+const navigateTo = (nextScreen) => {
+clearMessages();
+setScreen(nextScreen);
+};
+
+const handleUnitSelect = (unit) => {
+setSelectedUnit(unit);
+clearMessages();
+setScreen("unit");
+};
+
+const handleBackToDashboard = () => {
+clearMessages();
+setSelectedUnit(null);
+setScreen("dashboard");
+};
+
+/* =======================================================
+SHARINGAN / ITACHI MODE
+======================================================= */
+
+const [itachiMode, setItachiMode] = useState(() => {
+try {
+return localStorage.getItem("studymate_itachi_mode") === "true";
+} catch (error) {
+return false;
+}
+});
+
+useEffect(() => {
+try {
+localStorage.setItem(
+"studymate_itachi_mode",
+itachiMode ? "true" : "false"
+);
+} catch (error) {
+console.error(
+"Could not save Itachi mode:",
+error
+);
+}
+}, [itachiMode]);
+
+const toggleItachiMode = () => {
+setItachiMode((previous) => !previous);
+};
+
+
+/* =======================================================
+SHARINGAN EYE
+======================================================= */
+const SharinganEye = ({ size = 90 }) => {
+  const [frame, setFrame] = useState(0);
+
+  const frames = [
+    "/images/sharingan_01_open.png",
+    "/images/sharingan_02_blinking.png",
+    "/images/sharingan_03_closed.png",
+    "/images/sharingan_04_opening.png",
+    "/images/sharingan_05_open.png",
+    "/images/sharingan_06_open.png",
+  ];
 
   useEffect(() => {
-    if (
-      !testStarted ||
-      testFinished
-    ) {
-      return;
-    }
+    let currentFrame = 0;
 
-    if (
-      testTimeLeft <= 0
-    ) {
-      finishTest();
-
-      return;
-    }
-
-    const timer =
-      setInterval(() => {
-        setTestTimeLeft(
-          (previousTime) =>
-            previousTime - 1
-        );
-      }, 1000);
-
-    return () =>
-      clearInterval(timer);
-  }, [
-    testStarted,
-    testFinished,
-    testTimeLeft,
-  ]);
-
-  // =======================================
-  // FORMAT TIME
-  // =======================================
-
-  const formatTime = (
-    seconds
-  ) => {
-    const minutes =
-      Math.floor(
-        seconds / 60
-      );
-
-    const remainingSeconds =
-      seconds % 60;
-
-    return `${String(
-      minutes
-    ).padStart(
-      2,
-      "0"
-    )}:${String(
-      remainingSeconds
-    ).padStart(
-      2,
-      "0"
-    )}`;
-  };
-
-  // =======================================
-  // CURRENT ANSWER
-  // =======================================
-
-  const currentAnswer =
-    testAnswers[
-      currentQuestion
+    // EXACT timing for every frame
+    const frameTimes = [
+      2200, // 01 OPEN      - stay open
+      120,  // 02 BLINKING  - quick
+      140,  // 03 CLOSED    - quick
+      140,  // 04 OPENING   - quick
+      180,  // 05 OPEN      - settle
+      2200, // 06 OPEN      - stay open
     ];
 
-  // =======================================
-  // CLEAR TEST HISTORY
-  // =======================================
+    let timer;
 
-  const handleClearHistory =
-    () => {
-      const confirmed =
-        window.confirm(
-          "Are you sure you want to clear all test history? This cannot be undone."
-        );
+    const playFrame = () => {
+      timer = setTimeout(() => {
+        currentFrame++;
 
-      if (!confirmed) {
-        return;
-      }
+        if (currentFrame >= frames.length) {
+          currentFrame = 0;
+        }
 
-      setTestHistory([]);
-
-      showSettingsMessage(
-        "Test history cleared successfully."
-      );
+        setFrame(currentFrame);
+        playFrame();
+      }, frameTimes[currentFrame]);
     };
 
-  // =======================================
-  // RESET STUDYMATE
-  // =======================================
+    playFrame();
 
-  const handleResetStudyMate =
-    () => {
-      const confirmed =
-        window.confirm(
-          "This will permanently delete all units, PDFs, study notes, test history and saved preferences. Are you sure?"
-        );
-
-      if (!confirmed) {
-        return;
-      }
-
-      localStorage.removeItem(
-        "studymate_units"
-      );
-
-      localStorage.removeItem(
-        "studymate_test_history"
-      );
-
-      localStorage.removeItem(
-        "studymate_study_mode"
-      );
-
-      localStorage.removeItem(
-        "studymate_notes_style"
-      );
-
-      localStorage.removeItem(
-        "studymate_auto_save"
-      );
-
-      setUnits([]);
-
-      setTestHistory([]);
-
-      setSelectedUnit(null);
-
-      setSelectedFile(null);
-
-      setExtractedText("");
-
-      setStudyNotes("");
-
-      setStudyMode(
-        "Dark Crimson"
-      );
-
-      setNotesStyle(
-        "Short & Exam-Focused"
-      );
-
-      setAutoSave(true);
-
-      resetTestState();
-
-      setActivePage(
-        "Dashboard"
-      );
-
-      alert(
-        "StudyMate has been reset successfully."
-      );
+    return () => {
+      clearTimeout(timer);
     };
+  }, []);
 
-  // =======================================
-  // NAVIGATION
-  // =======================================
+  return (
+    <img
+      src={frames[frame]}
+      alt="Sharingan eye"
+      style={{
+        width: `${size}px`,
+        height: `${size}px`,
+        objectFit: "contain",
+        display: "block",
+        userSelect: "none",
+        pointerEvents: "none",
 
-  const renderPage = () => {
-    if (
-      activePage ===
-      "Dashboard"
-    ) {
-      return renderDashboard();
-    }
+        filter:
+          "drop-shadow(0 0 8px rgba(255,0,0,0.8)) drop-shadow(0 0 18px rgba(150,0,0,0.55))",
 
-    if (
-      activePage === "Units"
-    ) {
-      return renderUnits();
-    }
+        // Prevent the image from visually jumping
+        flexShrink: 0,
+      }}
+    />
+  );
+};
+const BlinkingSharinganEyes = ({ size = 105 }) => {
+  const [frame, setFrame] = useState(0);
 
-    if (
-      activePage === "Unit"
-    ) {
-      return renderUnitDetails();
-    }
+  const frames = [
+    "/images/sharingan_01_open.png",
+    "/images/sharingan_02_blinking.png",
+    "/images/sharingan_03_closed.png",
+    "/images/sharingan_04_opening.png",
+    "/images/sharingan_05_open.png",
+    "/images/sharingan_06_open.png",
+  ];
 
-    if (
-      activePage === "Tests"
-    ) {
-      return renderTests();
-    }
+  useEffect(() => {
+    // Keep the eyes open for a while before blinking.
+    const timers = [
+      setTimeout(() => setFrame(1), 2500),
+      setTimeout(() => setFrame(2), 2600),
+      setTimeout(() => setFrame(3), 2750),
+      setTimeout(() => setFrame(4), 2900),
+      setTimeout(() => setFrame(5), 3050),
+    ];
 
-    if (
-      activePage === "Test"
-    ) {
-      return renderTest();
-    }
+    const resetTimer = setTimeout(() => {
+      setFrame(0);
+    }, 3250);
 
-    if (
-      activePage === "History"
-    ) {
-      return renderHistory();
-    }
+    return () => {
+      timers.forEach(clearTimeout);
+      clearTimeout(resetTimer);
+    };
+  }, [frame]);
 
-    if (
-      activePage === "Settings"
-    ) {
-      return renderSettings();
-    }
+  return (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        width: "100%",
+        padding: "10px 0",
+      }}
+    >
+      <img
+        src={frames[frame]}
+        alt="Sharingan"
+        style={{
+          width: `${size * 2.1}px`,
+          height: `${size}px`,
+          objectFit: "contain",
+          display: "block",
+          filter:
+            "drop-shadow(0 0 8px rgba(255,0,0,0.75)) drop-shadow(0 0 20px rgba(180,0,0,0.45))",
+          userSelect: "none",
+          pointerEvents: "none",
+        }}
+      />
+    </div>
+  );
+};
 
-    return renderDashboard();
+
+/* =======================================================
+UNIT HELPERS
+======================================================= */
+
+const createUnit = (name) => {
+const cleanName = String(name || "").trim();
+
+
+if (!cleanName) {
+  showError("Please enter a unit name.");
+  return null;
+}
+
+const existingUnit = units.find(
+  (unit) =>
+    String(unit.name || "").toLowerCase() ===
+    cleanName.toLowerCase()
+);
+
+if (existingUnit) {
+  showError("A unit with that name already exists.");
+  return null;
+}
+
+const newUnit = {
+  id: Date.now(),
+  name: cleanName,
+  createdAt: new Date().toISOString(),
+  notes: "",
+  pdf: null,
+};
+
+setUnits((previous) => [...previous, newUnit]);
+
+showMessage(`Unit "${cleanName}" created.`);
+
+return newUnit;
+
+
+};
+
+const deleteUnit = (unitId) => {
+const confirmed = window.confirm(
+"Are you sure you want to delete this unit?"
+);
+
+
+if (!confirmed) {
+  return;
+}
+
+setUnits((previous) =>
+  previous.filter((unit) => unit.id !== unitId)
+);
+
+if (selectedUnit?.id === unitId) {
+  setSelectedUnit(null);
+  setScreen("dashboard");
+}
+
+showMessage("Unit deleted.");
+
+
+};
+
+const updateUnit = (unitId, updates) => {
+setUnits((previous) =>
+previous.map((unit) =>
+unit.id === unitId
+? {
+...unit,
+...updates,
+}
+: unit
+)
+);
+
+
+setSelectedUnit((previous) => {
+  if (!previous || previous.id !== unitId) {
+    return previous;
+  }
+
+  return {
+    ...previous,
+    ...updates,
   };
+});
 
-  // =======================================
-  // DASHBOARD
-  // =======================================
 
-  const renderDashboard = () => {
-    const totalNotes =
-      units.reduce(
-        (total, unit) =>
-          total +
-          (unit.notes || 0),
-        0
-      );
+};
 
-    const totalTests =
-      units.reduce(
-        (total, unit) =>
-          total +
-          (unit.tests || 0),
-        0
-      );
+/* =======================================================
+FILE HANDLING
+======================================================= */
 
-    const scores =
-      units
-        .map(
-          (unit) =>
-            unit.score
-        )
-        .filter(
-          (score) =>
-            typeof score ===
-            "number"
-        );
+const handlePdfChange = (event) => {
+const file = event.target.files?.[0];
 
-    const averageScore =
-      scores.length
-        ? Math.round(
-            scores.reduce(
-              (a, b) =>
-                a + b,
-              0
-            ) /
-              scores.length
-          )
-        : 0;
 
-    return (
-      <div className="page">
-        <div className="welcome-section">
-          <div>
-            <p className="eyebrow">
-              STUDYMATE
-            </p>
+if (!file) {
+  return;
+}
 
-            <h2>
-              Study with precision.
-            </h2>
+if (file.type !== "application/pdf") {
+  showError("Please select a PDF file.");
+  return;
+}
 
-            <p className="welcome-text">
-              Upload your material,
-              understand it,
-              then test yourself.
-            </p>
-          </div>
+setPdfFile(file);
+
+setPdfInfo({
+  name: file.name,
+  size: file.size,
+  type: file.type,
+});
+
+clearMessages();
+
+showMessage(
+  `"${file.name}" has been selected.`
+);
+
+
+};
+
+const removePdf = () => {
+setPdfFile(null);
+setPdfInfo(null);
+setExtractedText("");
+
+
+showMessage("PDF removed.");
+
+
+};
+
+/* =======================================================
+TEST HELPERS
+======================================================= */
+
+const resetTest = () => {
+setTestQuestions([]);
+setTestAnswers({});
+setCurrentQuestion(0);
+setTestTimeLeft(TEST_DURATION);
+setTestStarted(false);
+setTestResult(null);
+};
+
+const startTest = (questions = []) => {
+clearMessages();
+
+
+if (!questions || questions.length === 0) {
+  showError(
+    "There are no test questions available yet."
+  );
+  return;
+}
+
+setTestQuestions(questions);
+setTestAnswers({});
+setCurrentQuestion(0);
+setTestTimeLeft(TEST_DURATION);
+setTestResult(null);
+setTestStarted(true);
+setScreen("test");
+
+
+};
+
+const selectAnswer = (questionIndex, answer) => {
+setTestAnswers((previous) => ({
+...previous,
+[questionIndex]: answer,
+}));
+};
+
+const goToNextQuestion = () => {
+if (currentQuestion < testQuestions.length - 1) {
+setCurrentQuestion(
+(previous) => previous + 1
+);
+}
+};
+
+const goToPreviousQuestion = () => {
+if (currentQuestion > 0) {
+setCurrentQuestion(
+(previous) => previous - 1
+);
+}
+};
+
+const finishTest = () => {
+if (!testQuestions.length) {
+return;
+}
+
+
+setTestStarted(false);
+
+let correctAnswers = 0;
+
+testQuestions.forEach((question, index) => {
+  const selectedAnswer = testAnswers[index];
+
+  if (
+    selectedAnswer !== undefined &&
+    selectedAnswer === question.answer
+  ) {
+    correctAnswers += 1;
+  }
+});
+
+const percentage =
+  testQuestions.length > 0
+    ? Math.round(
+        (correctAnswers / testQuestions.length) * 100
+      )
+    : 0;
+
+const result = {
+  id: Date.now(),
+  date: new Date().toISOString(),
+  unitId: selectedUnit?.id || null,
+  unitName:
+    selectedUnit?.name || "General Test",
+  totalQuestions: testQuestions.length,
+  correctAnswers,
+  wrongAnswers:
+    testQuestions.length - correctAnswers,
+  percentage,
+  answers: testAnswers,
+  questions: testQuestions,
+};
+
+setTestResult(result);
+
+setHistory((previous) => [
+  result,
+  ...previous,
+]);
+
+setScreen("result");
+
+
+};
+
+const getQuestionCorrect = (question, index) => {
+return (
+testAnswers[index] !== undefined &&
+testAnswers[index] === question.answer
+);
+};
+
+const getFilteredReviewQuestions = () => {
+if (!testResult?.questions) {
+return [];
+}
+
+
+return testResult.questions
+  .map((question, index) => ({
+    ...question,
+    questionIndex: index,
+    userAnswer:
+      testResult.answers?.[index],
+    isCorrect:
+      testResult.answers?.[index] ===
+      question.answer,
+  }))
+  .filter((question) => {
+    if (reviewFilter === "failed") {
+      return !question.isCorrect;
+    }
+
+    if (reviewFilter === "passed") {
+      return question.isCorrect;
+    }
+
+    return true;
+  });
+
+
+};
+
+/* =======================================================
+DASHBOARD STATISTICS
+======================================================= */
+
+const totalUnits = units.length;
+
+const totalTests = history.length;
+
+const averageScore =
+history.length > 0
+? Math.round(
+history.reduce(
+(total, item) =>
+total + Number(item.percentage || 0),
+0
+) / history.length
+)
+: 0;
+
+const bestScore =
+history.length > 0
+? Math.max(
+...history.map((item) =>
+Number(item.percentage || 0)
+)
+)
+: 0;
+
+/* =======================================================
+STYLING HELPERS
+======================================================= */
+
+
+const pageStyle = {
+  minHeight: "100vh",
+  background: itachiMode
+    ? "radial-gradient(circle at 50% 0%, #350000 0%, #120000 28%, #050505 65%, #000000 100%)"
+    : "#f5f7fb",
+  color: itachiMode
+    ? "#ffffff"
+    : "#171717",
+  transition: "background 0.4s ease, color 0.4s ease",
+};
+
+
+
+
+const cardStyle = {
+  background: itachiMode
+    ? "linear-gradient(145deg, rgba(35,5,5,0.96), rgba(10,10,10,0.98))"
+    : "#ffffff",
+  border: itachiMode
+    ? "1px solid #650000"
+    : "1px solid #e7eaf0",
+  borderRadius: "18px",
+  padding: "24px",
+  boxShadow: itachiMode
+    ? "0 10px 35px rgba(0,0,0,0.65), 0 0 18px rgba(139,0,0,0.18)"
+    : "0 10px 30px rgba(0,0,0,0.06)",
+  transition:
+    "background 0.4s ease, border 0.4s ease, box-shadow 0.4s ease",
+};
+
+
+const buttonStyle = {
+border: "none",
+borderRadius: "12px",
+padding: "12px 18px",
+cursor: "pointer",
+fontWeight: "700",
+fontSize: "14px",
+};
+
+const authInputStyle = {
+width: "100%",
+boxSizing: "border-box",
+padding: "14px 15px",
+borderRadius: "12px",
+border: itachiMode
+? "1px solid #3a3a3a"
+: "1px solid #dfe3ea",
+background: itachiMode
+? "#101010"
+: "#ffffff",
+color: itachiMode
+? "#ffffff"
+: "#171717",
+outline: "none",
+fontSize: "15px",
+};
+/* =======================================================
+LOGIN / REGISTER SCREEN
+======================================================= */
+
+const renderAuthScreen = () => {
+return (
+<div
+style={{
+minHeight: "100vh",
+display: "flex",
+alignItems: "center",
+justifyContent: "center",
+padding: "30px 20px",
+background: itachiMode
+? "#080808"
+: "linear-gradient(135deg, #eef2ff, #f8fafc)",
+}}
+>
+<div
+style={{
+width: "100%",
+maxWidth: "460px",
+}}
+>
+<div
+style={{
+textAlign: "center",
+marginBottom: "28px",
+}}
+>
+<div
+style={{
+width: "72px",
+height: "72px",
+margin: "0 auto 18px",
+borderRadius: "22px",
+display: "flex",
+alignItems: "center",
+justifyContent: "center",
+fontSize: "32px",
+background: itachiMode
+? "#1a1a1a"
+: "#111827",
+color: "#ffffff",
+}}
+>
+👁 </div>
+
+
+        <h1
+          style={{
+            margin: 0,
+            fontSize: "34px",
+            fontWeight: "800",
+            letterSpacing: "-1px",
+          }}
+        >
+          StudyMate
+        </h1>
+
+        <p
+          style={{
+            marginTop: "8px",
+            color: itachiMode
+              ? "#aaaaaa"
+              : "#64748b",
+          }}
+        >
+          Your smarter study companion
+        </p>
+      </div>
+
+      <div style={cardStyle}>
+        <div
+          style={{
+            display: "flex",
+            gap: "8px",
+            padding: "5px",
+            marginBottom: "25px",
+            borderRadius: "12px",
+            background: itachiMode
+              ? "#101010"
+              : "#f1f5f9",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setAuthMode("login");
+              clearMessages();
+            }}
+            style={{
+              ...buttonStyle,
+              flex: 1,
+              background:
+                authMode === "login"
+                  ? itachiMode
+                    ? "#2a2a2a"
+                    : "#ffffff"
+                  : "transparent",
+              color: itachiMode
+                ? "#ffffff"
+                : "#171717",
+              boxShadow:
+                authMode === "login"
+                  ? "0 3px 10px rgba(0,0,0,0.08)"
+                  : "none",
+            }}
+          >
+            Login
+          </button>
 
           <button
-            className="primary-button"
-            onClick={() =>
-              setShowAddUnit(
-                true
-              )
-            }
+            type="button"
+            onClick={() => {
+              setAuthMode("register");
+              clearMessages();
+            }}
+            style={{
+              ...buttonStyle,
+              flex: 1,
+              background:
+                authMode === "register"
+                  ? itachiMode
+                    ? "#2a2a2a"
+                    : "#ffffff"
+                  : "transparent",
+              color: itachiMode
+                ? "#ffffff"
+                : "#171717",
+              boxShadow:
+                authMode === "register"
+                  ? "0 3px 10px rgba(0,0,0,0.08)"
+                  : "none",
+            }}
           >
-            + Add Unit
+            Create account
           </button>
         </div>
 
-        <div className="stats-grid">
-          <div className="stat-card">
-            <div className="stat-icon">
-              U
-            </div>
+        <h2
+          style={{
+            margin: "0 0 7px",
+            fontSize: "25px",
+          }}
+        >
+          {authMode === "login"
+            ? "Welcome back"
+            : "Create your account"}
+        </h2>
 
-            <div>
-              <span>
-                Units
-              </span>
+        <p
+          style={{
+            margin: "0 0 24px",
+            color: itachiMode
+              ? "#999999"
+              : "#64748b",
+          }}
+        >
+          {authMode === "login"
+            ? "Continue your learning journey."
+            : "Start organizing your studies today."}
+        </p>
 
-              <strong>
-                {units.length}
-              </strong>
+        {message && (
+          <div
+            style={{
+              padding: "12px 14px",
+              marginBottom: "16px",
+              borderRadius: "10px",
+              background: "#ecfdf5",
+              color: "#047857",
+              fontSize: "14px",
+            }}
+          >
+            {message}
+          </div>
+        )}
+
+        {error && (
+          <div
+            style={{
+              padding: "12px 14px",
+              marginBottom: "16px",
+              borderRadius: "10px",
+              background: "#fef2f2",
+              color: "#b91c1c",
+              fontSize: "14px",
+            }}
+          >
+            {error}
+          </div>
+        )}
+
+        <form
+          onSubmit={
+            authMode === "login"
+              ? handleLogin
+              : handleRegister
+          }
+        >
+          {authMode === "register" && (
+            <div style={{ marginBottom: "17px" }}>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "7px",
+                  fontSize: "14px",
+                  fontWeight: "700",
+                }}
+              >
+                Full name
+              </label>
+
+              <input
+                type="text"
+                name="name"
+                value={authForm.name}
+                onChange={handleAuthInput}
+                placeholder="Enter your name"
+                style={authInputStyle}
+              />
             </div>
+          )}
+
+          <div style={{ marginBottom: "17px" }}>
+            <label
+              style={{
+                display: "block",
+                marginBottom: "7px",
+                fontSize: "14px",
+                fontWeight: "700",
+              }}
+            >
+              Email address
+            </label>
+
+            <input
+              type="email"
+              name="email"
+              value={authForm.email}
+              onChange={handleAuthInput}
+              placeholder="you@example.com"
+              style={authInputStyle}
+            />
           </div>
 
-          <div className="stat-card">
-            <div className="stat-icon">
-              N
-            </div>
+          <div style={{ marginBottom: "22px" }}>
+            <label
+              style={{
+                display: "block",
+                marginBottom: "7px",
+                fontSize: "14px",
+                fontWeight: "700",
+              }}
+            >
+              Password
+            </label>
 
-            <div>
-              <span>
-                Study Notes
-              </span>
-
-              <strong>
-                {totalNotes}
-              </strong>
-            </div>
+            <input
+              type="password"
+              name="password"
+              value={authForm.password}
+              onChange={handleAuthInput}
+              placeholder="Enter your password"
+              style={authInputStyle}
+            />
           </div>
 
-          <div className="stat-card">
-            <div className="stat-icon">
-              T
-            </div>
+          <button
+            type="submit"
+            disabled={authLoading}
+            style={{
+              ...buttonStyle,
+              width: "100%",
+              padding: "14px",
+              background: itachiMode
+                ? "#ffffff"
+                : "#111827",
+              color: itachiMode
+                ? "#111111"
+                : "#ffffff",
+              opacity: authLoading ? 0.7 : 1,
+            }}
+          >
+            {authLoading
+              ? "Please wait..."
+              : authMode === "login"
+              ? "Login to StudyMate"
+              : "Create my account"}
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+);
 
-            <div>
-              <span>
-                Tests
-              </span>
 
-              <strong>
-                {totalTests}
-              </strong>
-            </div>
-          </div>
+};
 
-          <div className="stat-card">
-            <div className="stat-icon">
-              %
-            </div>
+/* =======================================================
+NAVIGATION BAR
+======================================================= */
 
-            <div>
-              <span>
-                Average Score
-              </span>
+const renderNavbar = () => {
+return (
+<header
+style={{
+position: "sticky",
+top: 0,
+zIndex: 100,
+background: itachiMode
+? "rgba(8,8,8,0.95)"
+: "rgba(255,255,255,0.95)",
+borderBottom: itachiMode
+? "1px solid #262626"
+: "1px solid #e5e7eb",
+backdropFilter: "blur(12px)",
+}}
+>
+<div
+style={{
+maxWidth: "1200px",
+margin: "0 auto",
+padding: "15px 20px",
+display: "flex",
+alignItems: "center",
+justifyContent: "space-between",
+gap: "20px",
+}}
+>
+<button
+type="button"
+onClick={() => navigateTo("dashboard")}
+style={{
+border: "none",
+background: "transparent",
+cursor: "pointer",
+fontSize: "21px",
+fontWeight: "800",
+color: itachiMode
+? "#ffffff"
+: "#111827",
+}}
+>
+StudyMate </button>
 
-              <strong>
-                {averageScore}%
-              </strong>
-            </div>
+
+      <nav
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "7px",
+          flexWrap: "wrap",
+          justifyContent: "center",
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => navigateTo("dashboard")}
+          style={{
+            ...buttonStyle,
+            padding: "9px 12px",
+            background:
+              screen === "dashboard"
+                ? itachiMode
+                  ? "#292929"
+                  : "#f1f5f9"
+                : "transparent",
+            color: itachiMode
+              ? "#ffffff"
+              : "#334155",
+          }}
+        >
+          Dashboard
+        </button>
+
+        <button
+          type="button"
+          onClick={() => navigateTo("units")}
+          style={{
+            ...buttonStyle,
+            padding: "9px 12px",
+            background:
+              screen === "units"
+                ? itachiMode
+                  ? "#292929"
+                  : "#f1f5f9"
+                : "transparent",
+            color: itachiMode
+              ? "#ffffff"
+              : "#334155",
+          }}
+        >
+          My Units
+        </button>
+
+        <button
+          type="button"
+          onClick={() => navigateTo("history")}
+          style={{
+            ...buttonStyle,
+            padding: "9px 12px",
+            background:
+              screen === "history"
+                ? itachiMode
+                  ? "#292929"
+                  : "#f1f5f9"
+                : "transparent",
+            color: itachiMode
+              ? "#ffffff"
+              : "#334155",
+          }}
+        >
+          History
+        </button>
+
+        <button
+          type="button"
+          onClick={() => navigateTo("settings")}
+          style={{
+            ...buttonStyle,
+            padding: "9px 12px",
+            background:
+              screen === "settings"
+                ? itachiMode
+                  ? "#292929"
+                  : "#f1f5f9"
+                : "transparent",
+            color: itachiMode
+              ? "#ffffff"
+              : "#334155",
+          }}
+        >
+          Settings
+        </button>
+      </nav>
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+        }}
+      >
+        <button
+          type="button"
+          onClick={toggleItachiMode}
+          title="Toggle Itachi mode"
+          style={{
+            ...buttonStyle,
+            padding: "9px 12px",
+            background: itachiMode
+              ? "#2b2b2b"
+              : "#f1f5f9",
+            color: itachiMode
+              ? "#ffffff"
+              : "#334155",
+          }}
+        >
+          👁
+        </button>
+
+        <button
+          type="button"
+          onClick={handleLogout}
+          style={{
+            ...buttonStyle,
+            padding: "9px 12px",
+            background: "transparent",
+            color: itachiMode
+              ? "#dddddd"
+              : "#475569",
+          }}
+        >
+          Logout
+        </button>
+      </div>
+    </div>
+  </header>
+);
+
+
+};
+
+/* =======================================================
+MESSAGE BANNER
+======================================================= */
+
+const renderMessages = () => {
+if (!message && !error) {
+return null;
+}
+
+
+return (
+  <div
+    style={{
+      maxWidth: "1200px",
+      margin: "0 auto",
+      padding: "18px 20px 0",
+    }}
+  >
+    {message && (
+      <div
+        style={{
+          padding: "13px 16px",
+          borderRadius: "12px",
+          background: itachiMode
+            ? "#13251b"
+            : "#ecfdf5",
+          color: itachiMode
+            ? "#b8f5ca"
+            : "#047857",
+          border: "1px solid",
+          borderColor: itachiMode
+            ? "#214d31"
+            : "#a7f3d0",
+        }}
+      >
+        {message}
+      </div>
+    )}
+
+    {error && (
+      <div
+        style={{
+          padding: "13px 16px",
+          borderRadius: "12px",
+          background: itachiMode
+            ? "#2a1111"
+            : "#fef2f2",
+          color: itachiMode
+            ? "#ffb4b4"
+            : "#b91c1c",
+          border: "1px solid",
+          borderColor: itachiMode
+            ? "#5b2222"
+            : "#fecaca",
+        }}
+      >
+        {error}
+      </div>
+    )}
+  </div>
+);
+
+
+};
+
+/* =======================================================
+DASHBOARD
+======================================================= */
+
+
+const renderDashboard = () => {
+  return (
+    <main
+      style={{
+        maxWidth: "1200px",
+        margin: "0 auto",
+        padding: "40px 20px 70px",
+      }}
+    >
+      <section
+        style={{
+          display: "grid",
+          gridTemplateColumns:
+            "repeat(auto-fit, minmax(280px, 1fr))",
+          gap: "25px",
+          alignItems: "center",
+          marginBottom: "35px",
+        }}
+      >
+        <div>
+          <p
+            className="eyebrow"
+            style={{
+              marginBottom: "8px",
+              color: itachiMode ? "#ff3333" : undefined,
+              letterSpacing: itachiMode ? "2px" : undefined,
+            }}
+          >
+            {itachiMode
+              ? "SHARINGAN STUDY SPACE"
+              : "YOUR STUDY SPACE"}
+          </p>
+
+          <h1
+            style={{
+              margin: 0,
+              fontSize: "clamp(32px, 5vw, 52px)",
+              lineHeight: 1.05,
+              letterSpacing: "-2px",
+              textShadow: itachiMode
+                ? "0 0 18px rgba(255,0,0,0.25)"
+                : "none",
+            }}
+          >
+            Welcome back,
+            <br />
+            {currentUser.name}
+          </h1>
+
+          <p
+            style={{
+              marginTop: "18px",
+              fontSize: "17px",
+              lineHeight: 1.6,
+              maxWidth: "600px",
+              color: itachiMode
+                ? "#b8b8b8"
+                : "#64748b",
+            }}
+          >
+            Organize your units, study your notes,
+            and test yourself with StudyMate.
+          </p>
+
+          <div
+            style={{
+              display: "flex",
+              gap: "10px",
+              marginTop: "22px",
+              flexWrap: "wrap",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => navigateTo("units")}
+              style={{
+                ...buttonStyle,
+                background: itachiMode
+                  ? "linear-gradient(135deg, #ff1a1a, #8b0000)"
+                  : "#111827",
+                color: "#ffffff",
+                boxShadow: itachiMode
+                  ? "0 0 18px rgba(255,0,0,0.35)"
+                  : "none",
+              }}
+            >
+              Open my units
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigateTo("history")}
+              style={{
+                ...buttonStyle,
+                background: itachiMode
+                  ? "#1a0505"
+                  : "#ffffff",
+                color: itachiMode
+                  ? "#ffcccc"
+                  : "#111827",
+                border: itachiMode
+                  ? "1px solid #720000"
+                  : "1px solid #e2e8f0",
+                boxShadow: itachiMode
+                  ? "0 0 12px rgba(139,0,0,0.25)"
+                  : "none",
+              }}
+            >
+              View test history
+            </button>
           </div>
         </div>
 
-        <div className="section-header">
-          <h3>
-            Your Units
-          </h3>
+        <div
+          style={{
+            ...cardStyle,
+            minHeight: "220px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            textAlign: "center",
+            position: "relative",
+            overflow: "hidden",
+          }}
+        >
+          {itachiMode ? (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "18px",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "18px",
+                }}
+              >
+                <SharinganEye size={105} />
+                <SharinganEye size={105} />
+              </div>
+
+              <div
+                style={{
+                  color: "#ff3333",
+                  fontSize: "13px",
+                  fontWeight: "900",
+                  letterSpacing: "4px",
+                  textShadow:
+                    "0 0 12px rgba(255,0,0,0.8)",
+                }}
+              >
+                ITACHI MODE
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div
+                style={{
+                  fontSize: "68px",
+                  marginBottom: "10px",
+                }}
+              >
+                📚
+              </div>
+
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: "21px",
+                }}
+              >
+                Keep learning.
+              </h3>
+
+              <p
+                style={{
+                  marginTop: "8px",
+                  marginBottom: 0,
+                  color: "#64748b",
+                }}
+              >
+                Small progress every day adds up.
+              </p>
+            </div>
+          )}
+
+          {itachiMode && (
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                pointerEvents: "none",
+                background:
+                  "radial-gradient(circle at center, rgba(255,0,0,0.10), transparent 60%)",
+              }}
+            />
+          )}
+        </div>
+      </section>
+
+      <section
+        style={{
+          display: "grid",
+          gridTemplateColumns:
+            "repeat(auto-fit, minmax(180px, 1fr))",
+          gap: "15px",
+          marginBottom: "35px",
+        }}
+      >
+        <div style={cardStyle}>
+          <p
+            style={{
+              margin: 0,
+              color: itachiMode
+                ? "#999999"
+                : "#64748b",
+            }}
+          >
+            Units
+          </p>
+
+          <h2
+            style={{
+              margin: "8px 0 0",
+              fontSize: "34px",
+              color: itachiMode
+                ? "#ff3333"
+                : "inherit",
+              textShadow: itachiMode
+                ? "0 0 12px rgba(255,0,0,0.35)"
+                : "none",
+            }}
+          >
+            {totalUnits}
+          </h2>
+        </div>
+
+        <div style={cardStyle}>
+          <p
+            style={{
+              margin: 0,
+              color: itachiMode
+                ? "#999999"
+                : "#64748b",
+            }}
+          >
+            Tests completed
+          </p>
+
+          <h2
+            style={{
+              margin: "8px 0 0",
+              fontSize: "34px",
+              color: itachiMode
+                ? "#ff3333"
+                : "inherit",
+              textShadow: itachiMode
+                ? "0 0 12px rgba(255,0,0,0.35)"
+                : "none",
+            }}
+          >
+            {totalTests}
+          </h2>
+        </div>
+
+        <div style={cardStyle}>
+          <p
+            style={{
+              margin: 0,
+              color: itachiMode
+                ? "#999999"
+                : "#64748b",
+            }}
+          >
+            Average score
+          </p>
+
+          <h2
+            style={{
+              margin: "8px 0 0",
+              fontSize: "34px",
+              color: itachiMode
+                ? "#ff3333"
+                : "inherit",
+              textShadow: itachiMode
+                ? "0 0 12px rgba(255,0,0,0.35)"
+                : "none",
+            }}
+          >
+            {averageScore}%
+          </h2>
+        </div>
+
+        <div style={cardStyle}>
+          <p
+            style={{
+              margin: 0,
+              color: itachiMode
+                ? "#999999"
+                : "#64748b",
+            }}
+          >
+            Best score
+          </p>
+
+          <h2
+            style={{
+              margin: "8px 0 0",
+              fontSize: "34px",
+              color: itachiMode
+                ? "#ff3333"
+                : "inherit",
+              textShadow: itachiMode
+                ? "0 0 12px rgba(255,0,0,0.35)"
+                : "none",
+            }}
+          >
+            {bestScore}%
+          </h2>
+        </div>
+      </section>
+
+      <section>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "15px",
+            marginBottom: "17px",
+            flexWrap: "wrap",
+          }}
+        >
+          <div>
+            <p
+              className="eyebrow"
+              style={{
+                marginBottom: "5px",
+                color: itachiMode
+                  ? "#ff3333"
+                  : undefined,
+              }}
+            >
+              QUICK ACCESS
+            </p>
+
+            <h2 style={{ margin: 0 }}>
+              Your units
+            </h2>
+          </div>
 
           <button
-            className="text-button"
-            onClick={() =>
-              setActivePage(
-                "Units"
-              )
-            }
+            type="button"
+            onClick={() => navigateTo("units")}
+            style={{
+              ...buttonStyle,
+              background: itachiMode
+                ? "#1a0505"
+                : "#ffffff",
+              color: itachiMode
+                ? "#ffcccc"
+                : "#111827",
+              border: itachiMode
+                ? "1px solid #720000"
+                : "1px solid #e2e8f0",
+            }}
           >
             View all
           </button>
         </div>
 
         {units.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-symbol">
-              +
+          <div style={cardStyle}>
+            <div
+              style={{
+                textAlign: "center",
+                padding: "35px 15px",
+              }}
+            >
+              {itachiMode ? (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    marginBottom: "18px",
+                  }}
+                >
+                  <SharinganEye size={75} />
+                </div>
+              ) : (
+                <div
+                  style={{
+                    fontSize: "45px",
+                    marginBottom: "10px",
+                  }}
+                >
+                  📖
+                </div>
+              )}
+
+              <h3 style={{ margin: "0 0 8px" }}>
+                No units yet
+              </h3>
+
+              <p
+                style={{
+                  margin: "0 auto 20px",
+                  maxWidth: "500px",
+                  color: itachiMode
+                    ? "#999999"
+                    : "#64748b",
+                }}
+              >
+                Create your first study unit to
+                start organizing your learning
+                materials.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => navigateTo("units")}
+                style={{
+                  ...buttonStyle,
+                  background: itachiMode
+                    ? "linear-gradient(135deg, #ff1a1a, #8b0000)"
+                    : "#111827",
+                  color: "#ffffff",
+                  boxShadow: itachiMode
+                    ? "0 0 18px rgba(255,0,0,0.35)"
+                    : "none",
+                }}
+              >
+                Create first unit
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(230px, 1fr))",
+              gap: "15px",
+            }}
+          >
+            {units.slice(0, 6).map((unit) => (
+              <button
+                key={unit.id}
+                type="button"
+                onClick={() =>
+                  handleUnitSelect(unit)
+                }
+                style={{
+                  ...cardStyle,
+                  textAlign: "left",
+                  cursor: "pointer",
+                  color: itachiMode
+                    ? "#ffffff"
+                    : "#111827",
+                }}
+              >
+                <div
+                  style={{
+                    width: "52px",
+                    height: "52px",
+                    borderRadius: "15px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: itachiMode
+                      ? "#250505"
+                      : "#f1f5f9",
+                    border: itachiMode
+                      ? "1px solid #720000"
+                      : "none",
+                    marginBottom: "15px",
+                    boxShadow: itachiMode
+                      ? "0 0 14px rgba(139,0,0,0.25)"
+                      : "none",
+                  }}
+                >
+                  {itachiMode ? (
+                    <span
+                      style={{
+                        fontSize: "25px",
+                      }}
+                    >
+                      🔴
+                    </span>
+                  ) : (
+                    <span
+                      style={{
+                        fontSize: "30px",
+                      }}
+                    >
+                      📚
+                    </span>
+                  )}
+                </div>
+
+                <h3
+                  style={{
+                    margin: "0 0 7px",
+                    fontSize: "19px",
+                  }}
+                >
+                  {unit.name}
+                </h3>
+
+                <p
+                  style={{
+                    margin: 0,
+                    color: itachiMode
+                      ? "#999999"
+                      : "#64748b",
+                    fontSize: "14px",
+                  }}
+                >
+                  Open unit →
+                </p>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+    </main>
+  );
+};
+
+
+/* =======================================================
+UNITS SCREEN
+======================================================= */
+
+const [newUnitName, setNewUnitName] = useState("");
+
+
+
+const handleCreateUnit = (event) => {
+event.preventDefault();
+
+
+const createdUnit = createUnit(newUnitName);
+
+if (!createdUnit) {
+  return;
+}
+
+setNewUnitName("");
+
+
+};
+
+const renderUnits = () => {
+return (
+<main
+style={{
+maxWidth: "1200px",
+margin: "0 auto",
+padding: "40px 20px 70px",
+}}
+>
+<div
+style={{
+display: "flex",
+justifyContent: "space-between",
+alignItems: "flex-start",
+gap: "20px",
+flexWrap: "wrap",
+marginBottom: "30px",
+}}
+> <div>
+<button
+type="button"
+onClick={handleBackToDashboard}
+style={{
+...buttonStyle,
+background: "transparent",
+color: itachiMode
+? "#bbbbbb"
+: "#64748b",
+padding: "0",
+marginBottom: "15px",
+}}
+>
+← Back to dashboard </button>
+
+
+        <p
+          className="eyebrow"
+          style={{ marginBottom: "7px" }}
+        >
+          STUDY MATERIALS
+        </p>
+
+        <h1
+          style={{
+            margin: 0,
+            fontSize: "clamp(32px, 5vw, 46px)",
+            letterSpacing: "-1.5px",
+          }}
+        >
+          My Units
+        </h1>
+
+        <p
+          style={{
+            marginTop: "12px",
+            color: itachiMode
+              ? "#999999"
+              : "#64748b",
+            maxWidth: "620px",
+            lineHeight: 1.6,
+          }}
+        >
+          Create a unit for each subject or course
+          you are studying. Keep your notes and
+          learning materials organized in one place.
+        </p>
+      </div>
+    </div>
+
+    <section
+      style={{
+        ...cardStyle,
+        marginBottom: "28px",
+      }}
+    >
+      <h2
+        style={{
+          margin: "0 0 7px",
+          fontSize: "22px",
+        }}
+      >
+        Create a new unit
+      </h2>
+
+      <p
+        style={{
+          margin: "0 0 18px",
+          color: itachiMode
+            ? "#999999"
+            : "#64748b",
+        }}
+      >
+        Give your study unit a clear name.
+      </p>
+
+      <form
+        onSubmit={handleCreateUnit}
+        style={{
+          display: "flex",
+          gap: "10px",
+          flexWrap: "wrap",
+        }}
+      >
+        <input
+          type="text"
+          value={newUnitName}
+          onChange={(event) =>
+            setNewUnitName(event.target.value)
+          }
+          placeholder="e.g. Mathematics, Biology, Computer Science"
+          style={{
+            ...authInputStyle,
+            flex: "1 1 300px",
+          }}
+        />
+
+        <button
+          type="submit"
+          style={{
+            ...buttonStyle,
+            background: itachiMode
+              ? "#ffffff"
+              : "#111827",
+            color: itachiMode
+              ? "#111111"
+              : "#ffffff",
+          }}
+        >
+          + Create unit
+        </button>
+      </form>
+    </section>
+
+    {units.length === 0 ? (
+      <div style={cardStyle}>
+        <div
+          style={{
+            textAlign: "center",
+            padding: "45px 20px",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "55px",
+              marginBottom: "15px",
+            }}
+          >
+            📚
+          </div>
+
+          <h2 style={{ margin: "0 0 10px" }}>
+            Your units will appear here
+          </h2>
+
+          <p
+            style={{
+              margin: 0,
+              color: itachiMode
+                ? "#999999"
+                : "#64748b",
+            }}
+          >
+            Create your first unit above.
+          </p>
+        </div>
+      </div>
+    ) : (
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns:
+            "repeat(auto-fit, minmax(260px, 1fr))",
+          gap: "18px",
+        }}
+      >
+        {units.map((unit) => (
+          <div
+            key={unit.id}
+            style={cardStyle}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                justifyContent: "space-between",
+                gap: "12px",
+              }}
+            >
+              <div
+                style={{
+                  width: "48px",
+                  height: "48px",
+                  borderRadius: "14px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: itachiMode
+                    ? "#242424"
+                    : "#f1f5f9",
+                  fontSize: "23px",
+                }}
+              >
+                📖
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  deleteUnit(unit.id)
+                }
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  color: itachiMode
+                    ? "#999999"
+                    : "#94a3b8",
+                  cursor: "pointer",
+                  fontSize: "18px",
+                }}
+                title="Delete unit"
+              >
+                ⋮
+              </button>
             </div>
 
-            <h3>
-              No units yet
+            <h3
+              style={{
+                margin: "18px 0 7px",
+                fontSize: "21px",
+              }}
+            >
+              {unit.name}
             </h3>
 
-            <p>
-              Create your first unit
-              and begin building
-              your study system.
+            <p
+              style={{
+                margin: "0 0 18px",
+                fontSize: "14px",
+                color: itachiMode
+                  ? "#999999"
+                  : "#64748b",
+              }}
+            >
+              Created{" "}
+              {unit.createdAt
+                ? new Date(
+                    unit.createdAt
+                  ).toLocaleDateString()
+                : "recently"}
             </p>
 
             <button
-              className="primary-button"
+              type="button"
               onClick={() =>
-                setShowAddUnit(
-                  true
-                )
+                handleUnitSelect(unit)
               }
+              style={{
+                ...buttonStyle,
+                width: "100%",
+                background: itachiMode
+                  ? "#242424"
+                  : "#f8fafc",
+                color: itachiMode
+                  ? "#ffffff"
+                  : "#111827",
+                border: itachiMode
+                  ? "1px solid #333"
+                  : "1px solid #e2e8f0",
+              }}
             >
-              Create First Unit
+              Open unit →
             </button>
           </div>
-        ) : (
-          <div className="units-grid">
-            {units
-              .slice(0, 6)
-              .map(
-                (unit) => (
-                  <div
-                    className="unit-card"
-                    key={unit.id}
-                  >
-                    <div className="unit-card-top">
-                      <div className="unit-symbol">
-                        {unit.name
-                          .charAt(
-                            0
-                          )
-                          .toUpperCase()}
-                      </div>
-
-                      <button
-                        className="delete-button"
-                        onClick={() =>
-                          handleDeleteUnit(
-                            unit.id
-                          )
-                        }
-                      >
-                        ×
-                      </button>
-                    </div>
-
-                    <h3>
-                      {unit.name}
-                    </h3>
-
-                    <div className="unit-meta">
-                      <span>
-                        {unit.notes ||
-                          0}{" "}
-                        notes
-                      </span>
-
-                      <span>
-                        {unit.tests ||
-                          0}{" "}
-                        tests
-                      </span>
-
-                      <span>
-                        {unit.pdf
-                          ? "PDF"
-                          : "No PDF"}
-                      </span>
-                    </div>
-
-                    <button
-                      className="open-unit-button"
-                      onClick={() =>
-                        handleOpenUnit(
-                          unit
-                        )
-                      }
-                    >
-                      Open Unit →
-                    </button>
-                  </div>
-                )
-              )}
-          </div>
-        )}
+        ))}
       </div>
-    );
-  };
+    )}
+  </main>
+);
 
-  // =======================================
-  // UNITS PAGE
-  // =======================================
 
-  const renderUnits = () => (
-    <div className="page">
-      <div className="page-heading">
-        <div>
-          <p className="eyebrow">
-            YOUR MATERIAL
+};
+
+/* =======================================================
+UNIT SCREEN
+======================================================= */
+
+const handleNotesChange = (event) => {
+const value = event.target.value;
+
+
+setStudyNotes(value);
+
+if (selectedUnit) {
+  updateUnit(selectedUnit.id, {
+    notes: value,
+  });
+}
+
+
+};
+
+const handleUnitPdfSave = () => {
+if (!selectedUnit) {
+showError("Please select a unit first.");
+return;
+}
+
+
+if (!pdfFile) {
+  showError("Please choose a PDF file first.");
+  return;
+}
+
+updateUnit(selectedUnit.id, {
+  pdf: {
+    name: pdfFile.name,
+    size: pdfFile.size,
+    type: pdfFile.type,
+  },
+});
+
+showMessage(
+  `"${pdfFile.name}" has been attached to ${selectedUnit.name}.`
+);
+
+
+};
+
+const loadSelectedUnit = () => {
+if (!selectedUnit) {
+return;
+}
+
+
+setStudyNotes(selectedUnit.notes || "");
+
+if (selectedUnit.pdf) {
+  setPdfInfo(selectedUnit.pdf);
+} else {
+  setPdfInfo(null);
+}
+
+
+};
+
+useEffect(() => {
+if (selectedUnit) {
+loadSelectedUnit();
+}
+}, [selectedUnit]);
+
+const renderUnit = () => {
+if (!selectedUnit) {
+return (
+<main
+style={{
+maxWidth: "900px",
+margin: "0 auto",
+padding: "60px 20px",
+}}
+> <div style={cardStyle}> <h2>No unit selected</h2>
+
+
+        <button
+          type="button"
+          onClick={() => navigateTo("units")}
+          style={{
+            ...buttonStyle,
+            background: itachiMode
+              ? "#ffffff"
+              : "#111827",
+            color: itachiMode
+              ? "#111111"
+              : "#ffffff",
+          }}
+        >
+          Go to units
+        </button>
+      </div>
+    </main>
+  );
+}
+
+return (
+  <main
+    style={{
+      maxWidth: "1200px",
+      margin: "0 auto",
+      padding: "40px 20px 70px",
+    }}
+  >
+    <button
+      type="button"
+      onClick={() => navigateTo("units")}
+      style={{
+        ...buttonStyle,
+        background: "transparent",
+        color: itachiMode
+          ? "#bbbbbb"
+          : "#64748b",
+        padding: 0,
+        marginBottom: "18px",
+      }}
+    >
+      ← Back to units
+    </button>
+
+    <div
+      style={{
+        marginBottom: "30px",
+      }}
+    >
+      <p
+        className="eyebrow"
+        style={{ marginBottom: "7px" }}
+      >
+        STUDY UNIT
+      </p>
+
+      <h1
+        style={{
+          margin: 0,
+          fontSize: "clamp(32px, 5vw, 48px)",
+          letterSpacing: "-1.5px",
+        }}
+      >
+        {selectedUnit.name}
+      </h1>
+
+      <p
+        style={{
+          marginTop: "12px",
+          color: itachiMode
+            ? "#999999"
+            : "#64748b",
+        }}
+      >
+        Study, review and test your knowledge.
+      </p>
+    </div>
+
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns:
+          "repeat(auto-fit, minmax(320px, 1fr))",
+        gap: "20px",
+        marginBottom: "20px",
+      }}
+    >
+      <section style={cardStyle}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: "15px",
+            alignItems: "center",
+            marginBottom: "18px",
+          }}
+        >
+          <div>
+            <p
+              className="eyebrow"
+              style={{ marginBottom: "5px" }}
+            >
+              NOTES
+            </p>
+
+            <h2 style={{ margin: 0 }}>
+              Study notes
+            </h2>
+          </div>
+
+          <span style={{ fontSize: "25px" }}>
+            📝
+          </span>
+        </div>
+
+        <textarea
+          value={studyNotes}
+          onChange={handleNotesChange}
+          placeholder="Write your study notes here..."
+          rows={12}
+          style={{
+            width: "100%",
+            boxSizing: "border-box",
+            resize: "vertical",
+            padding: "14px",
+            borderRadius: "12px",
+            border: itachiMode
+              ? "1px solid #333"
+              : "1px solid #dfe3ea",
+            background: itachiMode
+              ? "#101010"
+              : "#ffffff",
+            color: itachiMode
+              ? "#ffffff"
+              : "#171717",
+            fontFamily: "inherit",
+            fontSize: "15px",
+            lineHeight: 1.6,
+            outline: "none",
+          }}
+        />
+      </section>
+
+      <section style={cardStyle}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: "15px",
+            alignItems: "center",
+            marginBottom: "18px",
+          }}
+        >
+          <div>
+            <p
+              className="eyebrow"
+              style={{ marginBottom: "5px" }}
+            >
+              MATERIAL
+            </p>
+
+            <h2 style={{ margin: 0 }}>
+              Study PDF
+            </h2>
+          </div>
+
+          <span style={{ fontSize: "25px" }}>
+            📄
+          </span>
+        </div>
+
+        <label
+          style={{
+            display: "block",
+            padding: "28px 15px",
+            borderRadius: "14px",
+            border: itachiMode
+              ? "1px dashed #444"
+              : "1px dashed #cbd5e1",
+            textAlign: "center",
+            cursor: "pointer",
+            marginBottom: "15px",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "35px",
+              marginBottom: "8px",
+            }}
+          >
+            📤
+          </div>
+
+          <strong>
+            Choose a PDF
+          </strong>
+
+          <p
+            style={{
+              margin: "7px 0 0",
+              fontSize: "13px",
+              color: itachiMode
+                ? "#999999"
+                : "#64748b",
+            }}
+          >
+            Upload your study material
           </p>
 
-          <h2>
-            Units
+          <input
+            type="file"
+            accept="application/pdf"
+            onChange={handlePdfChange}
+            style={{ display: "none" }}
+          />
+        </label>
+
+        {pdfInfo && (
+          <div
+            style={{
+              padding: "14px",
+              borderRadius: "12px",
+              background: itachiMode
+                ? "#202020"
+                : "#f8fafc",
+              marginBottom: "15px",
+            }}
+          >
+            <strong
+              style={{
+                display: "block",
+                wordBreak: "break-word",
+              }}
+            >
+              {pdfInfo.name}
+            </strong>
+
+            {pdfInfo.size && (
+              <span
+                style={{
+                  display: "block",
+                  marginTop: "5px",
+                  fontSize: "13px",
+                  color: itachiMode
+                    ? "#999999"
+                    : "#64748b",
+                }}
+              >
+                {(pdfInfo.size / 1024 / 1024).toFixed(
+                  2
+                )}{" "}
+                MB
+              </span>
+            )}
+          </div>
+        )}
+
+        <div
+          style={{
+            display: "flex",
+            gap: "8px",
+            flexWrap: "wrap",
+          }}
+        >
+          <button
+            type="button"
+            onClick={handleUnitPdfSave}
+            style={{
+              ...buttonStyle,
+              flex: 1,
+              background: itachiMode
+                ? "#ffffff"
+                : "#111827",
+              color: itachiMode
+                ? "#111111"
+                : "#ffffff",
+            }}
+          >
+            Save PDF
+          </button>
+
+          {pdfInfo && (
+            <button
+              type="button"
+              onClick={removePdf}
+              style={{
+                ...buttonStyle,
+                background: itachiMode
+                  ? "#242424"
+                  : "#ffffff",
+                color: itachiMode
+                  ? "#ffffff"
+                  : "#334155",
+                border: itachiMode
+                  ? "1px solid #333"
+                  : "1px solid #e2e8f0",
+              }}
+            >
+              Remove
+            </button>
+          )}
+        </div>
+      </section>
+    </div>
+
+    <section
+      style={{
+        ...cardStyle,
+        marginTop: "20px",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "20px",
+          flexWrap: "wrap",
+        }}
+      >
+        <div>
+          <p
+            className="eyebrow"
+            style={{ marginBottom: "5px" }}
+          >
+            KNOWLEDGE CHECK
+          </p>
+
+          <h2 style={{ margin: 0 }}>
+            Ready to test yourself?
           </h2>
 
-          <p>
-            Manage your study material.
+          <p
+            style={{
+              margin: "8px 0 0",
+              color: itachiMode
+                ? "#999999"
+                : "#64748b",
+            }}
+          >
+            Start a timed test based on your study
+            material.
           </p>
         </div>
 
         <button
-          className="primary-button"
-          onClick={() =>
-            setShowAddUnit(
-              true
-            )
-          }
+          type="button"
+          onClick={() => {
+            showError(
+              "Test generation will be connected to your backend in the next section."
+            );
+          }}
+          style={{
+            ...buttonStyle,
+            padding: "14px 20px",
+            background: itachiMode
+              ? "#ffffff"
+              : "#111827",
+            color: itachiMode
+              ? "#111111"
+              : "#ffffff",
+          }}
         >
-          + Add Unit
+          Start test →
+        </button>
+      </div>
+    </section>
+  </main>
+);
+
+
+};
+
+/* =======================================================
+TEST SCREEN
+======================================================= */
+
+const renderTest = () => {
+if (!testQuestions.length) {
+return (
+<main
+style={{
+maxWidth: "900px",
+margin: "0 auto",
+padding: "60px 20px",
+}}
+> <div style={cardStyle}> <h2>No test available</h2>
+
+
+        <p
+          style={{
+            color: itachiMode
+              ? "#999999"
+              : "#64748b",
+          }}
+        >
+          There are currently no questions to
+          display.
+        </p>
+
+        <button
+          type="button"
+          onClick={() =>
+            navigateTo("dashboard")
+          }
+          style={{
+            ...buttonStyle,
+            background: itachiMode
+              ? "#ffffff"
+              : "#111827",
+            color: itachiMode
+              ? "#111111"
+              : "#ffffff",
+          }}
+        >
+          Return to dashboard
+        </button>
+      </div>
+    </main>
+  );
+}
+
+const question =
+  testQuestions[currentQuestion];
+
+const selectedAnswer =
+  testAnswers[currentQuestion];
+
+const progress =
+  ((currentQuestion + 1) /
+    testQuestions.length) *
+  100;
+
+const isLastQuestion =
+  currentQuestion ===
+  testQuestions.length - 1;
+
+return (
+  <main
+    style={{
+      maxWidth: "1000px",
+      margin: "0 auto",
+      padding: "35px 20px 70px",
+    }}
+  >
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: "15px",
+        flexWrap: "wrap",
+        marginBottom: "18px",
+      }}
+    >
+      <div>
+        <p
+          className="eyebrow"
+          style={{ marginBottom: "5px" }}
+        >
+          {selectedUnit?.name ||
+            "STUDY TEST"}
+        </p>
+
+        <h1
+          style={{
+            margin: 0,
+            fontSize: "28px",
+          }}
+        >
+          Knowledge Test
+        </h1>
+      </div>
+
+      <div
+        style={{
+          padding: "12px 17px",
+          borderRadius: "12px",
+          background:
+            testTimeLeft <= 60
+              ? "#fee2e2"
+              : itachiMode
+              ? "#202020"
+              : "#ffffff",
+          color:
+            testTimeLeft <= 60
+              ? "#b91c1c"
+              : itachiMode
+              ? "#ffffff"
+              : "#111827",
+          border:
+            testTimeLeft <= 60
+              ? "1px solid #fecaca"
+              : itachiMode
+              ? "1px solid #333"
+              : "1px solid #e2e8f0",
+          fontWeight: "800",
+          fontSize: "18px",
+          minWidth: "90px",
+          textAlign: "center",
+        }}
+      >
+        ⏱ {formatTime(testTimeLeft)}
+      </div>
+    </div>
+
+    <div
+      style={{
+        width: "100%",
+        height: "8px",
+        borderRadius: "99px",
+        overflow: "hidden",
+        background: itachiMode
+          ? "#242424"
+          : "#e2e8f0",
+        marginBottom: "25px",
+      }}
+    >
+      <div
+        style={{
+          width: `${progress}%`,
+          height: "100%",
+          borderRadius: "99px",
+          background: itachiMode
+            ? "#ffffff"
+            : "#111827",
+          transition: "width 0.2s ease",
+        }}
+      />
+    </div>
+
+    <div style={cardStyle}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: "15px",
+          marginBottom: "25px",
+        }}
+      >
+        <span
+          style={{
+            fontSize: "14px",
+            fontWeight: "800",
+            color: itachiMode
+              ? "#bbbbbb"
+              : "#64748b",
+          }}
+        >
+          QUESTION {currentQuestion + 1} OF{" "}
+          {testQuestions.length}
+        </span>
+
+        {selectedAnswer !== undefined && (
+          <span
+            style={{
+              fontSize: "13px",
+              fontWeight: "700",
+              color: itachiMode
+                ? "#ffffff"
+                : "#475569",
+            }}
+          >
+            Answer selected
+          </span>
+        )}
+      </div>
+
+      <h2
+        style={{
+          margin: "0 0 28px",
+          fontSize: "clamp(22px, 4vw, 30px)",
+          lineHeight: 1.4,
+        }}
+      >
+        {question.question ||
+          question.text ||
+          "Question"}
+      </h2>
+
+      <div
+        style={{
+          display: "grid",
+          gap: "12px",
+        }}
+      >
+        {(question.options || []).map(
+          (option, optionIndex) => {
+            const isSelected =
+              selectedAnswer === option;
+
+            return (
+              <button
+                key={optionIndex}
+                type="button"
+                onClick={() =>
+                  selectAnswer(
+                    currentQuestion,
+                    option
+                  )
+                }
+                style={{
+                  width: "100%",
+                  padding: "17px",
+                  borderRadius: "13px",
+                  border: isSelected
+                    ? "2px solid"
+                    : itachiMode
+                    ? "1px solid #333"
+                    : "1px solid #e2e8f0",
+                  borderColor: isSelected
+                    ? itachiMode
+                      ? "#ffffff"
+                      : "#111827"
+                    : undefined,
+                  background: isSelected
+                    ? itachiMode
+                      ? "#292929"
+                      : "#f1f5f9"
+                    : itachiMode
+                    ? "#111111"
+                    : "#ffffff",
+                  color: itachiMode
+                    ? "#ffffff"
+                    : "#111827",
+                  textAlign: "left",
+                  cursor: "pointer",
+                  fontSize: "15px",
+                  fontWeight: isSelected
+                    ? "800"
+                    : "600",
+                }}
+              >
+                <span
+                  style={{
+                    display: "inline-flex",
+                    width: "30px",
+                    height: "30px",
+                    borderRadius: "50%",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginRight: "12px",
+                    background: isSelected
+                      ? itachiMode
+                        ? "#ffffff"
+                        : "#111827"
+                      : itachiMode
+                      ? "#292929"
+                      : "#f1f5f9",
+                    color: isSelected
+                      ? itachiMode
+                        ? "#111111"
+                        : "#ffffff"
+                      : itachiMode
+                      ? "#bbbbbb"
+                      : "#475569",
+                  }}
+                >
+                  {String.fromCharCode(
+                    65 + optionIndex
+                  )}
+                </span>
+
+                {option}
+              </button>
+            );
+          }
+        )}
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: "10px",
+          marginTop: "30px",
+          flexWrap: "wrap",
+        }}
+      >
+        <button
+          type="button"
+          disabled={currentQuestion === 0}
+          onClick={goToPreviousQuestion}
+          style={{
+            ...buttonStyle,
+            background: itachiMode
+              ? "#222222"
+              : "#ffffff",
+            color: itachiMode
+              ? "#ffffff"
+              : "#111827",
+            border: itachiMode
+              ? "1px solid #333"
+              : "1px solid #e2e8f0",
+            opacity:
+              currentQuestion === 0 ? 0.45 : 1,
+            cursor:
+              currentQuestion === 0
+                ? "not-allowed"
+                : "pointer",
+          }}
+        >
+          ← Previous
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            if (isLastQuestion) {
+              finishTest();
+            } else {
+              goToNextQuestion();
+            }
+          }}
+          style={{
+            ...buttonStyle,
+            background: itachiMode
+              ? "#ffffff"
+              : "#111827",
+            color: itachiMode
+              ? "#111111"
+              : "#ffffff",
+          }}
+        >
+          {isLastQuestion
+            ? "Finish test"
+            : "Next question →"}
+        </button>
+      </div>
+    </div>
+  </main>
+);
+
+
+};
+
+/* =======================================================
+RESULT SCREEN
+======================================================= */
+
+const renderResult = () => {
+if (!testResult) {
+return (
+<main
+style={{
+maxWidth: "900px",
+margin: "0 auto",
+padding: "60px 20px",
+}}
+> <div style={cardStyle}> <h2>No test result available</h2>
+
+
+        <button
+          type="button"
+          onClick={() =>
+            navigateTo("dashboard")
+          }
+          style={{
+            ...buttonStyle,
+            background: itachiMode
+              ? "#ffffff"
+              : "#111827",
+            color: itachiMode
+              ? "#111111"
+              : "#ffffff",
+          }}
+        >
+          Return home
+        </button>
+      </div>
+    </main>
+  );
+}
+
+const percentage =
+  Number(testResult.percentage) || 0;
+
+let resultTitle = "Keep practicing";
+
+if (percentage >= 80) {
+  resultTitle = "Excellent work!";
+} else if (percentage >= 60) {
+  resultTitle = "Good job!";
+} else if (percentage >= 40) {
+  resultTitle = "You're getting there";
+}
+
+return (
+  <main
+    style={{
+      maxWidth: "1000px",
+      margin: "0 auto",
+      padding: "40px 20px 70px",
+    }}
+  >
+    <div
+      style={{
+        textAlign: "center",
+        marginBottom: "30px",
+      }}
+    >
+      <p
+        className="eyebrow"
+        style={{ marginBottom: "7px" }}
+      >
+        TEST COMPLETE
+      </p>
+
+      <h1
+        style={{
+          margin: 0,
+          fontSize: "clamp(34px, 6vw, 52px)",
+          letterSpacing: "-2px",
+        }}
+      >
+        {resultTitle}
+      </h1>
+
+      <p
+        style={{
+          marginTop: "12px",
+          color: itachiMode
+            ? "#999999"
+            : "#64748b",
+        }}
+      >
+        Here is your performance summary.
+      </p>
+    </div>
+
+    <section
+      style={{
+        ...cardStyle,
+        textAlign: "center",
+        marginBottom: "20px",
+      }}
+    >
+      <div
+        style={{
+          width: "150px",
+          height: "150px",
+          borderRadius: "50%",
+          margin: "0 auto 20px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          border: "10px solid",
+          borderColor: itachiMode
+            ? "#ffffff"
+            : "#111827",
+          fontSize: "34px",
+          fontWeight: "900",
+        }}
+      >
+        {percentage}%
+      </div>
+
+      <h2
+        style={{
+          margin: "0 0 8px",
+        }}
+      >
+        {testResult.correctAnswers} /{" "}
+        {testResult.totalQuestions} correct
+      </h2>
+
+      <p
+        style={{
+          margin: 0,
+          color: itachiMode
+            ? "#999999"
+            : "#64748b",
+        }}
+      >
+        {testResult.unitName}
+      </p>
+    </section>
+
+    <section
+      style={{
+        display: "grid",
+        gridTemplateColumns:
+          "repeat(auto-fit, minmax(180px, 1fr))",
+        gap: "15px",
+        marginBottom: "25px",
+      }}
+    >
+      <div style={cardStyle}>
+        <p
+          style={{
+            margin: 0,
+            color: itachiMode
+              ? "#999999"
+              : "#64748b",
+          }}
+        >
+          Correct
+        </p>
+
+        <h3
+          style={{
+            margin: "8px 0 0",
+            fontSize: "30px",
+          }}
+        >
+          {testResult.correctAnswers}
+        </h3>
+      </div>
+
+      <div style={cardStyle}>
+        <p
+          style={{
+            margin: 0,
+            color: itachiMode
+              ? "#999999"
+              : "#64748b",
+          }}
+        >
+          Incorrect
+        </p>
+
+        <h3
+          style={{
+            margin: "8px 0 0",
+            fontSize: "30px",
+          }}
+        >
+          {testResult.wrongAnswers}
+        </h3>
+      </div>
+
+      <div style={cardStyle}>
+        <p
+          style={{
+            margin: 0,
+            color: itachiMode
+              ? "#999999"
+              : "#64748b",
+          }}
+        >
+          Score
+        </p>
+
+        <h3
+          style={{
+            margin: "8px 0 0",
+            fontSize: "30px",
+          }}
+        >
+          {percentage}%
+        </h3>
+      </div>
+    </section>
+
+    <section style={cardStyle}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: "15px",
+          flexWrap: "wrap",
+          marginBottom: "20px",
+        }}
+      >
+        <div>
+          <p
+            className="eyebrow"
+            style={{ marginBottom: "5px" }}
+          >
+            ANSWER REVIEW
+          </p>
+
+          <h2 style={{ margin: 0 }}>
+            Review your answers
+          </h2>
+        </div>
+
+        <button
+          type="button"
+          onClick={() =>
+            navigateTo("review")
+          }
+          style={{
+            ...buttonStyle,
+            background: itachiMode
+              ? "#ffffff"
+              : "#111827",
+            color: itachiMode
+              ? "#111111"
+              : "#ffffff",
+          }}
+        >
+          Review answers →
         </button>
       </div>
 
-      {units.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-symbol">
-            +
-          </div>
+      <p
+        style={{
+          margin: 0,
+          lineHeight: 1.6,
+          color: itachiMode
+            ? "#999999"
+            : "#64748b",
+        }}
+      >
+        Go through the questions you missed
+        and identify the areas you need to
+        improve.
+      </p>
+    </section>
 
-          <h3>
-            No units created
-          </h3>
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        gap: "10px",
+        flexWrap: "wrap",
+        marginTop: "25px",
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => {
+          resetTest();
+          navigateTo("dashboard");
+        }}
+        style={{
+          ...buttonStyle,
+          background: itachiMode
+            ? "#222222"
+            : "#ffffff",
+          color: itachiMode
+            ? "#ffffff"
+            : "#111827",
+          border: itachiMode
+            ? "1px solid #333"
+            : "1px solid #e2e8f0",
+        }}
+      >
+        Back to dashboard
+      </button>
 
-          <p>
-            Add a unit to begin.
-          </p>
-
-          <button
-            className="primary-button"
-            onClick={() =>
-              setShowAddUnit(
-                true
-              )
-            }
-          >
-            Add Unit
-          </button>
-        </div>
-      ) : (
-        <div className="units-grid">
-          {units.map(
-            (unit) => (
-              <div
-                className="unit-card"
-                key={unit.id}
-              >
-                <div className="unit-card-top">
-                  <div className="unit-symbol">
-                    {unit.name
-                      .charAt(0)
-                      .toUpperCase()}
-                  </div>
-
-                  <button
-                    className="delete-button"
-                    onClick={() =>
-                      handleDeleteUnit(
-                        unit.id
-                      )
-                    }
-                  >
-                    ×
-                  </button>
-                </div>
-
-                <h3>
-                  {unit.name}
-                </h3>
-
-                <div className="unit-meta">
-                  <span>
-                    {unit.notes ||
-                      0}{" "}
-                    notes
-                  </span>
-
-                  <span>
-                    {unit.tests ||
-                      0}{" "}
-                    tests
-                  </span>
-
-                  <span>
-                    {unit.pdf
-                      ? "PDF ready"
-                      : "No PDF"}
-                  </span>
-                </div>
-
-                <button
-                  className="open-unit-button"
-                  onClick={() =>
-                    handleOpenUnit(
-                      unit
-                    )
-                  }
-                >
-                  Open Unit →
-                </button>
-              </div>
-            )
-          )}
-        </div>
-      )}
+      <button
+        type="button"
+        onClick={() => {
+          setTestAnswers({});
+          setCurrentQuestion(0);
+          setTestTimeLeft(TEST_DURATION);
+          setTestStarted(true);
+          setTestResult(null);
+          setScreen("test");
+        }}
+        style={{
+          ...buttonStyle,
+          background: itachiMode
+            ? "#ffffff"
+            : "#111827",
+          color: itachiMode
+            ? "#111111"
+            : "#ffffff",
+        }}
+      >
+        Try again
+      </button>
     </div>
-  );
+  </main>
+);
 
-  // =======================================
-  // UNIT DETAILS
-  // =======================================
 
-  const renderUnitDetails =
-    () => {
-      if (!selectedUnit) {
-        return (
-          <div className="page">
-            <div className="empty-state">
-              <h3>
-                No unit selected
-              </h3>
+};
 
-              <button
-                className="primary-button"
-                onClick={() =>
-                  setActivePage(
-                    "Units"
-                  )
-                }
-              >
-                Go to Units
-              </button>
-            </div>
-          </div>
-        );
+/* =======================================================
+ANSWER REVIEW SCREEN
+======================================================= */
+
+const renderReview = () => {
+const filteredQuestions =
+getFilteredReviewQuestions();
+
+
+return (
+  <main
+    style={{
+      maxWidth: "1000px",
+      margin: "0 auto",
+      padding: "40px 20px 70px",
+    }}
+  >
+    <button
+      type="button"
+      onClick={() =>
+        navigateTo("result")
       }
+      style={{
+        ...buttonStyle,
+        background: "transparent",
+        color: itachiMode
+          ? "#bbbbbb"
+          : "#64748b",
+        padding: 0,
+        marginBottom: "18px",
+      }}
+    >
+      ← Back to result
+    </button>
 
-      return (
-        <div className="page">
-          <button
-            className="back-button"
-            onClick={
-              handleBackToUnits
-            }
+    <div
+      style={{
+        marginBottom: "25px",
+      }}
+    >
+      <p
+        className="eyebrow"
+        style={{ marginBottom: "6px" }}
+      >
+        ANSWER REVIEW
+      </p>
+
+      <h1
+        style={{
+          margin: 0,
+          fontSize: "clamp(32px, 5vw, 46px)",
+          letterSpacing: "-1.5px",
+        }}
+      >
+        Review your test
+      </h1>
+
+      <p
+        style={{
+          marginTop: "10px",
+          color: itachiMode
+            ? "#999999"
+            : "#64748b",
+        }}
+      >
+        Focus on the questions that need more
+        attention.
+      </p>
+    </div>
+
+    <div
+      style={{
+        display: "flex",
+        gap: "8px",
+        flexWrap: "wrap",
+        marginBottom: "22px",
+      }}
+    >
+      {[
+        ["failed", "Needs review"],
+        ["passed", "Correct"],
+        ["all", "All questions"],
+      ].map(([value, label]) => (
+        <button
+          key={value}
+          type="button"
+          onClick={() =>
+            setReviewFilter(value)
+          }
+          style={{
+            ...buttonStyle,
+            background:
+              reviewFilter === value
+                ? itachiMode
+                  ? "#ffffff"
+                  : "#111827"
+                : itachiMode
+                ? "#202020"
+                : "#ffffff",
+            color:
+              reviewFilter === value
+                ? itachiMode
+                  ? "#111111"
+                  : "#ffffff"
+                : itachiMode
+                ? "#ffffff"
+                : "#334155",
+            border:
+              reviewFilter === value
+                ? "none"
+                : itachiMode
+                ? "1px solid #333"
+                : "1px solid #e2e8f0",
+          }}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+
+    {filteredQuestions.length === 0 ? (
+      <div style={cardStyle}>
+        <div
+          style={{
+            textAlign: "center",
+            padding: "35px 15px",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "45px",
+              marginBottom: "10px",
+            }}
           >
-            ← Back to Units
-          </button>
-
-          <div className="unit-details-header">
-            <div className="large-unit-symbol">
-              {selectedUnit.name
-                .charAt(0)
-                .toUpperCase()}
-            </div>
-
-            <div>
-              <p className="eyebrow">
-                UNIT
-              </p>
-
-              <h2>
-                {selectedUnit.name}
-              </h2>
-
-              <p>
-                Your study material
-              </p>
-            </div>
+            🎉
           </div>
 
-          {!selectedFile ? (
-            <div className="upload-card">
-              <div className="upload-icon">
-                ↑
-              </div>
-
-              <h3>
-                Upload your lecture PDF
-              </h3>
-
-              <p>
-                StudyMate will extract
-                the material and prepare
-                it for studying.
-              </p>
-
-              <label className="upload-button">
-                {uploading
-                  ? "Processing..."
-                  : "Choose PDF"}
-
-                <input
-                  type="file"
-                  accept=".pdf,application/pdf"
-                  onChange={
-                    handlePdfUpload
-                  }
-                  hidden
-                  disabled={
-                    uploading
-                  }
-                />
-              </label>
-
-              <span className="upload-hint">
-                PDF files only
-              </span>
-            </div>
-          ) : (
-            <div className="uploaded-file-card">
-              <div className="file-icon">
-                PDF
-              </div>
-
-              <div className="file-information">
-                <strong>
-                  {selectedFile.name}
-                </strong>
-
-                <span>
-                  {selectedFile.pages ||
-                    0}{" "}
-                  pages
-                </span>
-              </div>
-
-              <div className="ready-badge">
-                READY
-              </div>
-            </div>
-          )}
-
-          {extractedText && (
-            <div
-              className="coming-next"
-              style={{
-                marginBottom:
-                  "18px",
-              }}
-            >
-              <span>
-                STEP 03
-              </span>
-
-              <h3>
-                AI Study Notes
-              </h3>
-
-              <p>
-                Turn your extracted
-                lecture material into
-                short, clear and
-                exam-focused study notes.
-              </p>
-
-              <button
-                className="primary-button"
-                onClick={
-                  handleGenerateNotes
-                }
-                disabled={
-                  generatingNotes
-                }
-                style={{
-                  marginTop:
-                    "20px",
-                }}
-              >
-                {generatingNotes
-                  ? "Generating Study Notes..."
-                  : "✦ Generate AI Study Notes"}
-              </button>
-            </div>
-          )}
-
-          {studyNotes && (
-            <div
-              className="coming-next"
-              style={{
-                marginBottom:
-                  "18px",
-              }}
-            >
-              <span>
-                AI GENERATED
-              </span>
-
-              <h3>
-                Your Study Notes
-              </h3>
-
-              <p
-                style={{
-                  whiteSpace:
-                    "pre-wrap",
-
-                  lineHeight:
-                    "1.8",
-
-                  color: "#ddd",
-
-                  marginTop:
-                    "20px",
-                }}
-              >
-                {studyNotes}
-              </p>
-            </div>
-          )}
-
-          {extractedText && (
-            <div className="test-launch-card">
-              <div className="test-launch-symbol">
-                ◉
-              </div>
-
-              <div className="test-launch-content">
-                <span>
-                  STEP 04
-                </span>
-
-                <h3>
-                  Sharingan Test
-                </h3>
-
-                <p>
-                  Test your understanding
-                  with 30 AI-generated
-                  questions in 10 minutes.
-                </p>
-              </div>
-
-              <button
-                className="primary-button"
-                onClick={
-                  handleGenerateTest
-                }
-                disabled={
-                  testGenerating
-                }
-              >
-                {testGenerating
-                  ? "Creating Test..."
-                  : "Generate 30 Questions"}
-              </button>
-            </div>
-          )}
-        </div>
-      );
-    };
-
-  // =======================================
-  // TESTS PAGE
-  // =======================================
-
-  const renderTests = () => (
-    <div className="page">
-      <div className="page-heading">
-        <div>
-          <p className="eyebrow">
-            TEST CENTER
-          </p>
-
-          <h2>
-            Tests
+          <h2 style={{ margin: "0 0 8px" }}>
+            Nothing to review
           </h2>
 
-          <p>
-            Challenge your understanding.
+          <p
+            style={{
+              margin: 0,
+              color: itachiMode
+                ? "#999999"
+                : "#64748b",
+            }}
+          >
+            There are no questions in this
+            category.
           </p>
         </div>
       </div>
-
-      {units.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-symbol">
-            ◉
-          </div>
-
-          <h3>
-            No tests available
-          </h3>
-
-          <p>
-            Add a unit and upload
-            study material first.
-          </p>
-        </div>
-      ) : (
-        <div className="units-grid">
-          {units.map(
-            (unit) => (
+    ) : (
+      <div
+        style={{
+          display: "grid",
+          gap: "18px",
+        }}
+      >
+        {filteredQuestions.map(
+          (question) => (
+            <div
+              key={question.questionIndex}
+              style={cardStyle}
+            >
               <div
-                className="unit-card"
-                key={unit.id}
+                style={{
+                  display: "flex",
+                  justifyContent:
+                    "space-between",
+                  alignItems: "center",
+                  gap: "12px",
+                  marginBottom: "15px",
+                }}
               >
-                <div className="unit-card-top">
-                  <div className="unit-symbol">
-                    ◉
-                  </div>
-                </div>
-
-                <h3>
-                  {unit.name}
-                </h3>
-
-                <div className="unit-meta">
-                  <span>
-                    {unit.tests ||
-                      0}{" "}
-                    tests
-                  </span>
-
-                  <span>
-                    {unit.score !==
-                      null &&
-                    unit.score !==
-                      undefined
-                      ? `${unit.score}%`
-                      : "No score"}
-                  </span>
-                </div>
-
-                <button
-                  className="open-unit-button"
-                  onClick={() => {
-                    if (
-                      !unit.extractedText
-                    ) {
-                      handleOpenUnit(
-                        unit
-                      );
-
-                      return;
-                    }
-
-                    setSelectedUnit(
-                      unit
-                    );
-
-                    if (
-                      unit.pdf
-                    ) {
-                      setSelectedFile(
-                        {
-                          name:
-                            unit
-                              .pdf
-                              .name ||
-                            "Uploaded PDF",
-
-                          size:
-                            unit
-                              .pdf
-                              .size ||
-                            0,
-
-                          type:
-                            unit
-                              .pdf
-                              .type ||
-                            "application/pdf",
-
-                          filename:
-                            unit
-                              .pdf
-                              .filename ||
-                            "",
-
-                          pages:
-                            unit
-                              .pdf
-                              .pages ||
-                            0,
-                        }
-                      );
-                    } else {
-                      setSelectedFile(
-                        null
-                      );
-                    }
-
-                    setExtractedText(
-                      unit.extractedText ||
-                        ""
-                    );
-
-                    setStudyNotes(
-                      unit.studyNotes ||
-                        ""
-                    );
-
-                    handleGenerateTest(
-                      {
-                        text:
-                          unit.extractedText,
-                      }
-                    );
+                <span
+                  style={{
+                    fontSize: "13px",
+                    fontWeight: "800",
+                    color: itachiMode
+                      ? "#aaaaaa"
+                      : "#64748b",
                   }}
                 >
-                  {unit.extractedText
-                    ? "Generate Test →"
-                    : "Open Unit →"}
-                </button>
-              </div>
-            )
-          )}
-        </div>
-      )}
-    </div>
-  );
+                  QUESTION{" "}
+                  {question.questionIndex +
+                    1}
+                </span>
 
-  // =======================================
-  // TEST PAGE
-  // =======================================
-
-  const renderTest = () => {
-    if (testGenerating) {
-      return (
-        <div className="page">
-          <div className="test-loading">
-            <div className="sharingan-loader">
-              <div className="loader-eye">
-                <div className="loader-pupil">
-                  ◉
-                </div>
-              </div>
-
-              <div className="loader-eye">
-                <div className="loader-pupil">
-                  ◉
-                </div>
-              </div>
-            </div>
-
-            <p className="eyebrow">
-              SHARINGAN MODE
-            </p>
-
-            <h2>
-              Preparing your test...
-            </h2>
-
-            <p>
-              StudyMate is creating
-              30 fresh questions from your
-              study material.
-            </p>
-          </div>
-        </div>
-      );
-    }
-
-    if (
-      testQuestions.length ===
-      0
-    ) {
-      return (
-        <div className="page">
-          <div className="empty-state">
-            <div className="empty-symbol">
-              ◉
-            </div>
-
-            <h3>
-              Test not ready
-            </h3>
-
-            <p>
-              Generate a test from
-              your unit material first.
-            </p>
-
-            <button
-              className="primary-button"
-              onClick={() =>
-                setActivePage(
-                  "Units"
-                )
-              }
-            >
-              Go to Units
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    if (testFinished) {
-      return (
-        <div className="page">
-          <div className="result-screen">
-
-            <p className="eyebrow">
-              TEST COMPLETE
-            </p>
-
-            <div className="result-eyes">
-
-              <div className="result-eye">
-                <div className="result-pupil">
-                  ◉
-                </div>
-              </div>
-
-              <div className="result-eye">
-                <div className="result-pupil">
-                  ◉
-                </div>
-              </div>
-
-            </div>
-
-            <h2>
-              {testResult?.title}
-            </h2>
-
-            <div className="result-score">
-              {testScore}%
-            </div>
-
-            <p className="result-message">
-              {testResult?.message}
-            </p>
-
-            <div className="result-stats">
-
-              <div>
-                <strong>
-                  {testResult?.correct}
-                </strong>
-
-                <span>
-                  Correct
+                <span
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: "999px",
+                    fontSize: "12px",
+                    fontWeight: "800",
+                    background:
+                      question.isCorrect
+                        ? "#dcfce7"
+                        : "#fee2e2",
+                    color:
+                      question.isCorrect
+                        ? "#166534"
+                        : "#991b1b",
+                  }}
+                >
+                  {question.isCorrect
+                    ? "Correct"
+                    : "Needs review"}
                 </span>
               </div>
-
-              <div>
-                <strong>
-                  {testResult?.total -
-                    testResult?.correct}
-                </strong>
-
-                <span>
-                  Incorrect
-                </span>
-              </div>
-
-              <div>
-                <strong>
-                  {testResult?.total}
-                </strong>
-
-                <span>
-                  Questions
-                </span>
-              </div>
-
-            </div>
-
-            <div
-              style={{
-                marginTop:
-                  "45px",
-                textAlign:
-                  "left",
-              }}
-            >
-
-              <p className="eyebrow">
-                ANSWER REVIEW
-              </p>
 
               <h3
                 style={{
-                  fontSize:
-                    "24px",
-                  marginBottom:
-                    "8px",
+                  margin: "0 0 20px",
+                  fontSize: "20px",
+                  lineHeight: 1.5,
                 }}
               >
-                See what you missed
+                {question.question ||
+                  question.text}
               </h3>
 
-              <p
-                style={{
-                  color:
-                    "#888",
-                  marginBottom:
-                    "25px",
-                }}
-              >
-                Review every incorrect
-                answer and learn the
-                correct choice.
-              </p>
-
-            </div>
-
-            {testQuestions.every(
-              (question, index) =>
-                testAnswers[index] ===
-                question.answer
-            ) ? (
-
               <div
                 style={{
-                  padding:
-                    "25px",
-                  borderRadius:
-                    "16px",
-                  background:
-                    "rgba(40, 180, 100, 0.08)",
-                  border:
-                    "1px solid rgba(40, 180, 100, 0.25)",
-                  textAlign:
-                    "left",
-                  marginBottom:
-                    "25px",
+                  display: "grid",
+                  gap: "9px",
                 }}
               >
-
-                <strong
-                  style={{
-                    display:
-                      "block",
-                    fontSize:
-                      "18px",
-                    marginBottom:
-                      "8px",
-                  }}
-                >
-                  Perfect score.
-                </strong>
-
-                <p
-                  style={{
-                    margin:
-                      0,
-                    color:
-                      "#aaa",
-                  }}
-                >
-                  You answered every
-                  question correctly.
-                  Sharingan mastered.
-                </p>
-
-              </div>
-
-            ) : (
-
-              <div
-                style={{
-                  display:
-                    "flex",
-                  flexDirection:
-                    "column",
-                  gap:
-                    "16px",
-                  textAlign:
-                    "left",
-                  marginBottom:
-                    "30px",
-                }}
-              >
-
-                {testQuestions.map(
+                {(question.options ||
+                  []).map(
                   (
-                    question,
-                    index
+                    option,
+                    optionIndex
                   ) => {
-
-                    const userAnswer =
-                      testAnswers[
-                        index
-                      ];
-
-                    const correctAnswer =
+                    const isCorrect =
+                      option ===
                       question.answer;
 
-                    const isCorrect =
-                      userAnswer ===
-                      correctAnswer;
-
-                    if (
-                      isCorrect
-                    ) {
-                      return null;
-                    }
+                    const isUserAnswer =
+                      option ===
+                      question.userAnswer;
 
                     return (
                       <div
-                        key={
-                          index
-                        }
+                        key={optionIndex}
                         style={{
                           padding:
-                            "22px",
+                            "13px 14px",
                           borderRadius:
-                            "16px",
-                          background:
-                            "rgba(220, 40, 60, 0.07)",
+                            "10px",
                           border:
-                            "1px solid rgba(220, 40, 60, 0.22)",
+                            isCorrect
+                              ? "2px solid #16a34a"
+                              : isUserAnswer
+                              ? "2px solid #dc2626"
+                              : itachiMode
+                              ? "1px solid #333"
+                              : "1px solid #e2e8f0",
+                          background:
+                            isCorrect
+                              ? "#f0fdf4"
+                              : isUserAnswer
+                              ? "#fef2f2"
+                              : itachiMode
+                              ? "#111111"
+                              : "#ffffff",
+                          color:
+                            isCorrect
+                              ? "#166534"
+                              : isUserAnswer
+                              ? "#991b1b"
+                              : itachiMode
+                              ? "#dddddd"
+                              : "#334155",
                         }}
                       >
-
-                        <div
-                          style={{
-                            fontSize:
-                              "12px",
-                            fontWeight:
-                              "700",
-                            letterSpacing:
-                              "1px",
-                            color:
-                              "#888",
-                            marginBottom:
-                              "10px",
-                          }}
-                        >
-                          QUESTION{" "}
-                          {String(
-                            index +
-                              1
-                          ).padStart(
-                            2,
-                            "0"
+                        <strong>
+                          {String.fromCharCode(
+                            65 +
+                              optionIndex
                           )}
-                        </div>
+                          .
+                        </strong>{" "}
+                        {option}
 
-                        <h4
-                          style={{
-                            fontSize:
-                              "17px",
-                            lineHeight:
-                              "1.5",
-                            margin:
-                              "0 0 18px",
-                          }}
-                        >
-                          {
-                            question.question
-                          }
-                        </h4>
-
-                        <div
-                          style={{
-                            padding:
-                              "13px 15px",
-                            borderRadius:
-                              "10px",
-                            background:
-                              "rgba(220, 40, 60, 0.08)",
-                            marginBottom:
-                              "10px",
-                          }}
-                        >
-
+                        {isCorrect && (
                           <span
                             style={{
-                              display:
-                                "block",
+                              marginLeft:
+                                "8px",
                               fontSize:
-                                "11px",
+                                "12px",
                               fontWeight:
-                                "700",
-                              color:
-                                "#ff7d8d",
-                              marginBottom:
-                                "5px",
-                              letterSpacing:
-                                "0.8px",
+                                "800",
                             }}
                           >
-                            YOUR ANSWER
+                            ✓ Correct
                           </span>
+                        )}
 
-                          <span
-                            style={{
-                              color:
-                                "#ddd",
-                            }}
-                          >
-                            {userAnswer !==
-                            undefined
-                              ? `${String.fromCharCode(
-                                  65 +
-                                    userAnswer
-                                )}. ${
-                                  question
-                                    .options[
-                                    userAnswer
-                                  ]
-                                }`
-                              : "Not answered"}
-                          </span>
-
-                        </div>
-
-                        <div
-                          style={{
-                            padding:
-                              "13px 15px",
-                            borderRadius:
-                              "10px",
-                            background:
-                              "rgba(40, 180, 100, 0.08)",
-                            border:
-                              "1px solid rgba(40, 180, 100, 0.15)",
-                          }}
-                        >
-
-                          <span
-                            style={{
-                              display:
-                                "block",
-                              fontSize:
-                                "11px",
-                              fontWeight:
-                                "700",
-                              color:
-                                "#6ee7a0",
-                              marginBottom:
-                                "5px",
-                              letterSpacing:
-                                "0.8px",
-                            }}
-                          >
-                            CORRECT ANSWER
-                          </span>
-
-                          <span
-                            style={{
-                              color:
-                                "#ddd",
-                              fontWeight:
-                                "600",
-                            }}
-                          >
-                            {String.fromCharCode(
-                              65 +
-                                correctAnswer
-                            )}.{" "}
-                            {
-                              question
-                                .options[
-                                correctAnswer
-                              ]
-                            }
-                          </span>
-
-                        </div>
-
+                        {isUserAnswer &&
+                          !isCorrect && (
+                            <span
+                              style={{
+                                marginLeft:
+                                  "8px",
+                                fontSize:
+                                  "12px",
+                                fontWeight:
+                                  "800",
+                              }}
+                            >
+                              Your answer
+                            </span>
+                          )}
                       </div>
                     );
                   }
                 )}
-
-              </div>
-            )}
-
-            <div className="result-actions">
-
-              <button
-                className="primary-button"
-                onClick={() =>
-                  handleGenerateTest()
-                }
-              >
-                Try Again
-              </button>
-
-              <button
-                className="secondary-button"
-                onClick={() =>
-                  setActivePage(
-                    "History"
-                  )
-                }
-              >
-                View History
-              </button>
-
-            </div>
-
-          </div>
-        </div>
-      );
-    }
-
-    if (!testStarted) {
-      return (
-        <div className="page">
-          <div className="test-intro">
-
-            <p className="eyebrow">
-              SHARINGAN MODE
-            </p>
-
-            <div className="sharingan-eyes">
-
-              <div className="sharingan-eye">
-                <div className="eye-pupil">
-
-                  <span className="tomoe top">
-                    ●
-                  </span>
-
-                  <span className="tomoe left">
-                    ●
-                  </span>
-
-                  <span className="tomoe right">
-                    ●
-                  </span>
-
-                  ◉
-
-                </div>
               </div>
 
-              <div className="sharingan-eye">
-                <div className="eye-pupil">
-
-                  <span className="tomoe top">
-                    ●
-                  </span>
-
-                  <span className="tomoe left">
-                    ●
-                  </span>
-
-                  <span className="tomoe right">
-                    ●
-                  </span>
-
-                  ◉
-
-                </div>
-              </div>
-
-            </div>
-
-            <h2>
-              {selectedUnit?.name ||
-                "StudyMate Test"}
-            </h2>
-
-            <p>
-              Your perception will be
-              tested across 30 questions.
-            </p>
-
-            <div className="test-rules">
-
-              <div>
-                <strong>
-                  30
-                </strong>
-
-                <span>
-                  Questions
-                </span>
-              </div>
-
-              <div>
-                <strong>
-                  10
-                </strong>
-
-                <span>
-                  Minutes
-                </span>
-              </div>
-
-              <div>
-                <strong>
-                  4
-                </strong>
-
-                <span>
-                  Options
-                </span>
-              </div>
-
-            </div>
-
-            <button
-              className="primary-button test-start-button"
-              onClick={
-                handleStartTest
-              }
-            >
-              Activate Sharingan
-            </button>
-
-          </div>
-        </div>
-      );
-    }
-
-    const question =
-      testQuestions[
-        currentQuestion
-      ];
-
-    if (!question) {
-      return (
-        <div className="page">
-          <div className="empty-state">
-
-            <h3>
-              Question unavailable
-            </h3>
-
-            <p>
-              Something went wrong
-              with this test.
-            </p>
-
-            <button
-              className="primary-button"
-              onClick={() =>
-                setActivePage(
-                  "Units"
-                )
-              }
-            >
-              Return to Units
-            </button>
-
-          </div>
-        </div>
-      );
-    }
-
-    const progress =
-      ((currentQuestion + 1) /
-        testQuestions.length) *
-      100;
-
-    const isLastQuestion =
-      currentQuestion ===
-      testQuestions.length - 1;
-
-    return (
-      <div className="page test-page">
-
-        <div className="test-top">
-
-          <div>
-            <p className="eyebrow">
-              SHARINGAN TEST
-            </p>
-
-            <h2>
-              {selectedUnit?.name}
-            </h2>
-          </div>
-
-          <div
-            className={`test-timer ${
-              testTimeLeft <= 60
-                ? "timer-danger"
-                : ""
-            }`}
-          >
-            ◉{" "}
-            {formatTime(
-              testTimeLeft
-            )}
-          </div>
-
-        </div>
-
-        <div className="test-progress-container">
-
-          <div className="test-progress-info">
-
-            <span>
-              Question{" "}
-              {currentQuestion + 1}{" "}
-              of{" "}
-              {testQuestions.length}
-            </span>
-
-            <span>
-              {Math.round(
-                progress
-              )}
-              %
-            </span>
-
-          </div>
-
-          <div className="test-progress">
-
-            <div
-              className="test-progress-fill"
-              style={{
-                width: `${progress}%`,
-              }}
-            />
-
-          </div>
-
-        </div>
-
-        <div className="test-question-card">
-
-          <div className="question-number">
-            QUESTION{" "}
-            {String(
-              currentQuestion + 1
-            ).padStart(
-              2,
-              "0"
-            )}
-          </div>
-
-          <h3>
-            {question.question}
-          </h3>
-
-          <div className="answer-options">
-
-            {question.options.map(
-              (
-                option,
-                index
-              ) => (
-
-                <button
-                  key={index}
-                  className={`answer-option ${
-                    currentAnswer ===
-                    index
-                      ? "selected"
-                      : ""
-                  }`}
-                  onClick={() =>
-                    handleSelectAnswer(
-                      index
-                    )
-                  }
+              {!question.isCorrect && (
+                <div
+                  style={{
+                    marginTop: "17px",
+                    padding: "14px",
+                    borderRadius: "11px",
+                    background:
+                      itachiMode
+                        ? "#202020"
+                        : "#f8fafc",
+                  }}
                 >
-
-                  <span className="option-letter">
-                    {String.fromCharCode(
-                      65 + index
-                    )}
-                  </span>
-
-                  <span>
-                    {option}
-                  </span>
-
-                </button>
-
-              )
-            )}
-
-          </div>
-
-        </div>
-
-        <div className="test-navigation">
-
-          <button
-            className="secondary-button"
-            disabled={
-              currentQuestion ===
-              0
-            }
-            onClick={() =>
-              setCurrentQuestion(
-                (previous) =>
-                  previous - 1
-              )
-            }
-          >
-            ← Previous
-          </button>
-
-          <div className="question-dots">
-
-            {testQuestions
-              .slice(
-                Math.max(
-                  0,
-                  currentQuestion -
-                    2
-                ),
-                Math.min(
-                  testQuestions.length,
-                  currentQuestion +
-                    3
-                )
-              )
-              .map(
-                (
-                  _,
-                  index
-                ) => {
-
-                  const realIndex =
-                    Math.max(
-                      0,
-                      currentQuestion -
-                        2
-                    ) +
-                    index;
-
-                  return (
-                    <button
-                      key={
-                        realIndex
-                      }
-                      className={
-                        realIndex ===
-                        currentQuestion
-                          ? "active"
-                          : testAnswers[
-                              realIndex
-                            ] !==
-                            undefined
-                          ? "answered"
-                          : ""
-                      }
-                      onClick={() =>
-                        setCurrentQuestion(
-                          realIndex
-                        )
-                      }
-                    >
-                      {realIndex +
-                        1}
-                    </button>
-                  );
-
-                }
+                  <strong>
+                    Correct answer:
+                  </strong>{" "}
+                  {question.answer}
+                </div>
               )}
+            </div>
+          )
+        )}
+      </div>
+    )}
+  </main>
+);
 
+
+};
+
+/* =======================================================
+FINISH TEST CONFIRMATION
+======================================================= */
+
+const confirmFinishTest = () => {
+const answeredCount =
+Object.keys(testAnswers).length;
+
+
+const unansweredCount =
+  testQuestions.length - answeredCount;
+
+let confirmationMessage =
+  "Are you sure you want to finish the test?";
+
+if (unansweredCount > 0) {
+  confirmationMessage =
+    `You have ${unansweredCount} unanswered ${
+      unansweredCount === 1
+        ? "question"
+        : "questions"
+    }.\n\nAre you sure you want to finish the test?`;
+} else {
+  confirmationMessage =
+    "You have answered all the questions.\n\nAre you sure you want to finish the test?";
+}
+
+const confirmed = window.confirm(
+  confirmationMessage
+);
+
+if (!confirmed) {
+  return;
+}
+
+finishTest();
+
+
+};
+
+/* =======================================================
+HISTORY SCREEN
+======================================================= */
+
+const renderHistory = () => {
+return (
+<main
+style={{
+maxWidth: "1200px",
+margin: "0 auto",
+padding: "40px 20px 70px",
+}}
+>
+<div
+style={{
+display: "flex",
+justifyContent: "space-between",
+alignItems: "flex-start",
+gap: "20px",
+flexWrap: "wrap",
+marginBottom: "30px",
+}}
+> <div>
+<p
+className="eyebrow"
+style={{ marginBottom: "7px" }}
+>
+PERFORMANCE </p>
+
+
+        <h1
+          style={{
+            margin: 0,
+            fontSize: "clamp(32px, 5vw, 46px)",
+            letterSpacing: "-1.5px",
+          }}
+        >
+          Test History
+        </h1>
+
+        <p
+          style={{
+            marginTop: "10px",
+            color: itachiMode
+              ? "#999999"
+              : "#64748b",
+          }}
+        >
+          Track your progress and see how your
+          performance changes over time.
+        </p>
+      </div>
+
+      {history.length > 0 && (
+        <button
+          type="button"
+          onClick={handleClearHistory}
+          style={{
+            ...buttonStyle,
+            background: itachiMode
+              ? "#241414"
+              : "#fff1f2",
+            color: "#b91c1c",
+            border: "1px solid #fecdd3",
+          }}
+        >
+          Clear history
+        </button>
+      )}
+    </div>
+
+    {history.length === 0 ? (
+      <div style={cardStyle}>
+        <div
+          style={{
+            textAlign: "center",
+            padding: "55px 20px",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "55px",
+              marginBottom: "15px",
+            }}
+          >
+            📊
           </div>
 
-          {isLastQuestion ? (
-
-            <button
-              className="primary-button"
-              onClick={
-                finishTest
-              }
-            >
-              Submit Test
-            </button>
-
-          ) : (
-
-            <button
-              className="primary-button"
-              onClick={() =>
-                setCurrentQuestion(
-                  (previous) =>
-                    previous + 1
-                )
-              }
-            >
-              Next →
-            </button>
-
-          )}
-
-        </div>
-
-      </div>
-    );
-  };
-
-  // =======================================
-  // HISTORY
-  // =======================================
-
-  const renderHistory = () => (
-    <div className="page">
-
-      <div className="page-heading">
-
-        <div>
-
-          <p className="eyebrow">
-            PERFORMANCE
-          </p>
-
-          <h2>
-            Test History
+          <h2
+            style={{
+              margin: "0 0 9px",
+            }}
+          >
+            No tests completed yet
           </h2>
 
-          <p>
-            Your previous test results.
+          <p
+            style={{
+              maxWidth: "500px",
+              margin: "0 auto 20px",
+              lineHeight: 1.6,
+              color: itachiMode
+                ? "#999999"
+                : "#64748b",
+            }}
+          >
+            Complete your first test and your
+            results will appear here.
           </p>
 
+          <button
+            type="button"
+            onClick={() =>
+              navigateTo("units")
+            }
+            style={{
+              ...buttonStyle,
+              background: itachiMode
+                ? "#ffffff"
+                : "#111827",
+              color: itachiMode
+                ? "#111111"
+                : "#ffffff",
+            }}
+          >
+            Start studying
+          </button>
         </div>
-
       </div>
+    ) : (
+      <div
+        style={{
+          display: "grid",
+          gap: "15px",
+        }}
+      >
+        {history.map((item, index) => {
+          const percentage =
+            Number(item.percentage) || 0;
 
-      {testHistory.length ===
-      0 ? (
-
-        <div className="empty-state">
-
-          <div className="empty-symbol">
-            ◉
-          </div>
-
-          <h3>
-            No test history
-          </h3>
-
-          <p>
-            Complete your first test
-            to see your results here.
-          </p>
-
-        </div>
-
-      ) : (
-
-        <div className="history-list">
-
-          {testHistory.map(
-            (item) => (
-
+          return (
+            <div
+              key={
+                item.id ||
+                `${item.date}-${index}`
+              }
+              style={{
+                ...cardStyle,
+                display: "flex",
+                alignItems: "center",
+                justifyContent:
+                  "space-between",
+                gap: "20px",
+                flexWrap: "wrap",
+              }}
+            >
               <div
-                className="history-card"
-                key={item.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "15px",
+                }}
               >
-
-                <div className="history-icon">
-                  ◉
+                <div
+                  style={{
+                    width: "58px",
+                    height: "58px",
+                    borderRadius: "16px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background:
+                      percentage >= 80
+                        ? "#dcfce7"
+                        : percentage >= 50
+                        ? "#fef3c7"
+                        : "#fee2e2",
+                    color:
+                      percentage >= 80
+                        ? "#166534"
+                        : percentage >= 50
+                        ? "#92400e"
+                        : "#991b1b",
+                    fontWeight: "900",
+                    fontSize: "15px",
+                  }}
+                >
+                  {percentage}%
                 </div>
 
-                <div className="history-info">
+                <div>
+                  <h3
+                    style={{
+                      margin: 0,
+                      fontSize: "18px",
+                    }}
+                  >
+                    {item.unitName ||
+                      "General Test"}
+                  </h3>
 
-                  <strong>
-                    {item.unitName}
-                  </strong>
-
-                  <span>
-                    {item.date}
-                  </span>
-
+                  <p
+                    style={{
+                      margin:
+                        "5px 0 0",
+                      fontSize: "13px",
+                      color: itachiMode
+                        ? "#999999"
+                        : "#64748b",
+                    }}
+                  >
+                    {item.date
+                      ? new Date(
+                          item.date
+                        ).toLocaleString()
+                      : "Unknown date"}
+                  </p>
                 </div>
-
-                <div className="history-result">
-
-                  <strong>
-                    {item.score}%
-                  </strong>
-
-                  <span>
-                    {item.correct}/
-                    {item.total}
-                  </span>
-
-                </div>
-
               </div>
 
-            )
-          )}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "20px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div>
+                  <strong>
+                    {item.correctAnswers}
+                  </strong>{" "}
+                  correct
+                </div>
 
-        </div>
+                <div
+                  style={{
+                    color: itachiMode
+                      ? "#999999"
+                      : "#64748b",
+                  }}
+                >
+                  {item.wrongAnswers} incorrect
+                </div>
 
-      )}
-
-    </div>
-  );
-
-  // =======================================
-  // SETTINGS
-  // =======================================
-
-  const renderSettings =
-    () => (
-      <div className="page">
-
-        {/* HEADER */}
-
-        <div className="page-heading">
-
-          <div>
-
-            <p className="eyebrow">
-              PREFERENCES
-            </p>
-
-            <h2>
-              Settings
-            </h2>
-
-            <p>
-              Customize your StudyMate
-              experience.
-            </p>
-
-          </div>
-
-        </div>
-
-        {/* MESSAGE */}
-
-        {settingsMessage && (
-
-          <div
-            style={{
-              marginBottom:
-                "20px",
-
-              padding:
-                "14px 18px",
-
-              borderRadius:
-                "12px",
-
-              background:
-                "rgba(180, 20, 40, 0.12)",
-
-              border:
-                "1px solid rgba(220, 40, 60, 0.35)",
-
-              color: "#ffb3bd",
-
-              fontSize: "14px",
-
-              fontWeight: "600",
-            }}
-          >
-            ✓{" "}
-            {settingsMessage}
-          </div>
-
-        )}
-
-        {/* APPEARANCE */}
-
-        <div
-          className="settings-card"
-          style={{
-            marginBottom:
-              "18px",
-
-            display: "block",
-          }}
-        >
-
-          <div
-            style={{
-              display: "flex",
-
-              justifyContent:
-                "space-between",
-
-              alignItems:
-                "flex-start",
-
-              gap: "20px",
-
-              marginBottom:
-                "22px",
-            }}
-          >
-
-            <div>
-
-              <p className="eyebrow">
-                APPEARANCE
-              </p>
-
-              <h3>
-                Study mode
-              </h3>
-
-              <p>
-                Choose the visual style
-                used throughout StudyMate.
-              </p>
-
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTestResult(item);
+                    setReviewFilter(
+                      "failed"
+                    );
+                    setScreen("review");
+                  }}
+                  style={{
+                    ...buttonStyle,
+                    padding:
+                      "9px 13px",
+                    background:
+                      itachiMode
+                        ? "#222222"
+                        : "#f8fafc",
+                    color: itachiMode
+                      ? "#ffffff"
+                      : "#111827",
+                    border:
+                      itachiMode
+                        ? "1px solid #333"
+                        : "1px solid #e2e8f0",
+                  }}
+                >
+                  Review
+                </button>
+              </div>
             </div>
-
-            <span className="settings-status">
-              ACTIVE
-            </span>
-
-          </div>
-
-          <div
-            style={{
-              display: "grid",
-
-              gridTemplateColumns:
-                "repeat(auto-fit, minmax(220px, 1fr))",
-
-              gap: "12px",
-            }}
-          >
-
-            <button
-              type="button"
-              onClick={() => {
-
-                setStudyMode(
-                  "Dark Crimson"
-                );
-
-                showSettingsMessage(
-                  "Dark Crimson mode is active."
-                );
-
-              }}
-              style={{
-                padding:
-                  "18px",
-
-                borderRadius:
-                  "14px",
-
-                border:
-                  studyMode ===
-                  "Dark Crimson"
-                    ? "1px solid rgba(220, 40, 60, 0.7)"
-                    : "1px solid rgba(255,255,255,0.08)",
-
-                background:
-                  studyMode ===
-                  "Dark Crimson"
-                    ? "rgba(180, 20, 40, 0.15)"
-                    : "rgba(255,255,255,0.03)",
-
-                color: "#fff",
-
-                textAlign:
-                  "left",
-
-                cursor:
-                  "pointer",
-              }}
-            >
-
-              <strong
-                style={{
-                  display:
-                    "block",
-
-                  marginBottom:
-                    "7px",
-                }}
-              >
-                ◉ Dark Crimson
-              </strong>
-
-              <span
-                style={{
-                  color: "#aaa",
-
-                  fontSize:
-                    "13px",
-                }}
-              >
-                Itachi-inspired dark
-                study environment.
-              </span>
-
-            </button>
-
-            <div
-              style={{
-                padding:
-                  "18px",
-
-                borderRadius:
-                  "14px",
-
-                border:
-                  "1px solid rgba(255,255,255,0.06)",
-
-                background:
-                  "rgba(255,255,255,0.02)",
-
-                opacity: 0.55,
-              }}
-            >
-
-              <strong
-                style={{
-                  display:
-                    "block",
-
-                  marginBottom:
-                    "7px",
-                }}
-              >
-                ○ Light Mode
-              </strong>
-
-              <span
-                style={{
-                  color: "#aaa",
-
-                  fontSize:
-                    "13px",
-                }}
-              >
-                Light theme will be
-                available in a future
-                version.
-              </span>
-
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* STUDY PREFERENCES */}
-
-        <div
-          className="settings-card"
-          style={{
-            marginBottom:
-              "18px",
-
-            display: "block",
-          }}
-        >
-
-          <div
-            style={{
-              marginBottom:
-                "20px",
-            }}
-          >
-
-            <p className="eyebrow">
-              STUDY
-            </p>
-
-            <h3>
-              Study preferences
-            </h3>
-
-            <p>
-              Control how StudyMate
-              prepares your revision
-              material.
-            </p>
-
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-
-              justifyContent:
-                "space-between",
-
-              alignItems:
-                "center",
-
-              gap: "20px",
-
-              padding:
-                "16px 0",
-
-              borderTop:
-                "1px solid rgba(255,255,255,0.06)",
-            }}
-          >
-
-            <div>
-
-              <strong>
-                AI notes style
-              </strong>
-
-              <p
-                style={{
-                  margin:
-                    "5px 0 0",
-
-                  fontSize:
-                    "13px",
-
-                  color: "#888",
-                }}
-              >
-                How your lecture
-                material should be
-                summarized.
-              </p>
-
-            </div>
-
-            <select
-              value={
-                notesStyle
-              }
-              onChange={(
-                event
-              ) => {
-
-                setNotesStyle(
-                  event.target
-                    .value
-                );
-
-                showSettingsMessage(
-                  "Study preference updated."
-                );
-
-              }}
-              style={{
-                background:
-                  "#17171c",
-
-                color: "#fff",
-
-                border:
-                  "1px solid rgba(255,255,255,0.1)",
-
-                borderRadius:
-                  "10px",
-
-                padding:
-                  "11px 14px",
-
-                outline:
-                  "none",
-              }}
-            >
-
-              <option>
-                Short & Exam-Focused
-              </option>
-
-              <option>
-                Balanced
-              </option>
-
-              <option>
-                Detailed Revision
-              </option>
-
-            </select>
-
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-
-              justifyContent:
-                "space-between",
-
-              alignItems:
-                "center",
-
-              gap: "20px",
-
-              padding:
-                "16px 0",
-
-              borderTop:
-                "1px solid rgba(255,255,255,0.06)",
-            }}
-          >
-
-            <div>
-
-              <strong>
-                Automatically save progress
-              </strong>
-
-              <p
-                style={{
-                  margin:
-                    "5px 0 0",
-
-                  fontSize:
-                    "13px",
-
-                  color: "#888",
-                }}
-              >
-                Keep units, notes and
-                test history after
-                refreshing the page.
-              </p>
-
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-
-                setAutoSave(
-                  (previous) =>
-                    !previous
-                );
-
-                showSettingsMessage(
-                  autoSave
-                    ? "Automatic saving disabled."
-                    : "Automatic saving enabled."
-                );
-
-              }}
-              style={{
-                width:
-                  "52px",
-
-                height:
-                  "28px",
-
-                borderRadius:
-                  "30px",
-
-                border:
-                  "none",
-
-                padding:
-                  "3px",
-
-                cursor:
-                  "pointer",
-
-                background:
-                  autoSave
-                    ? "#b51f35"
-                    : "#333",
-
-                transition:
-                  "0.2s ease",
-
-                position:
-                  "relative",
-              }}
-            >
-
-              <span
-                style={{
-                  display:
-                    "block",
-
-                  width:
-                    "22px",
-
-                  height:
-                    "22px",
-
-                  borderRadius:
-                    "50%",
-
-                  background:
-                    "#fff",
-
-                  transform:
-                    autoSave
-                      ? "translateX(24px)"
-                      : "translateX(0)",
-
-                  transition:
-                    "0.2s ease",
-                }}
-              />
-
-            </button>
-
-          </div>
-
-        </div>
-
-        {/* TEST PREFERENCES */}
-
-        <div
-          className="settings-card"
-          style={{
-            marginBottom:
-              "18px",
-
-            display: "block",
-          }}
-        >
-
-          <div
-            style={{
-              marginBottom:
-                "20px",
-            }}
-          >
-
-            <p className="eyebrow">
-              TEST CENTER
-            </p>
-
-            <h3>
-              Test preferences
-            </h3>
-
-            <p>
-              Your current Sharingan
-              test configuration.
-            </p>
-
-          </div>
-
-          <div
-            style={{
-              display: "grid",
-
-              gridTemplateColumns:
-                "repeat(auto-fit, minmax(180px, 1fr))",
-
-              gap: "12px",
-            }}
-          >
-
-            <div
-              style={{
-                padding:
-                  "18px",
-
-                borderRadius:
-                  "14px",
-
-                background:
-                  "rgba(255,255,255,0.03)",
-
-                border:
-                  "1px solid rgba(255,255,255,0.06)",
-              }}
-            >
-
-              <span
-                style={{
-                  display:
-                    "block",
-
-                  color: "#888",
-
-                  fontSize:
-                    "12px",
-
-                  marginBottom:
-                    "8px",
-                }}
-              >
-                QUESTIONS
-              </span>
-
-              <strong
-                style={{
-                  fontSize:
-                    "25px",
-                }}
-              >
-                30
-              </strong>
-
-              <p
-                style={{
-                  margin:
-                    "5px 0 0",
-
-                  color: "#888",
-
-                  fontSize:
-                    "13px",
-                }}
-              >
-                Per attempt
-              </p>
-
-            </div>
-
-            <div
-              style={{
-                padding:
-                  "18px",
-
-                borderRadius:
-                  "14px",
-
-                background:
-                  "rgba(255,255,255,0.03)",
-
-                border:
-                  "1px solid rgba(255,255,255,0.06)",
-              }}
-            >
-
-              <span
-                style={{
-                  display:
-                    "block",
-
-                  color: "#888",
-
-                  fontSize:
-                    "12px",
-
-                  marginBottom:
-                    "8px",
-                }}
-              >
-                TIME LIMIT
-              </span>
-
-              <strong
-                style={{
-                  fontSize:
-                    "25px",
-                }}
-              >
-                10:00
-              </strong>
-
-              <p
-                style={{
-                  margin:
-                    "5px 0 0",
-
-                  color: "#888",
-
-                  fontSize:
-                    "13px",
-                }}
-              >
-                Per attempt
-              </p>
-
-            </div>
-
-            <div
-              style={{
-                padding:
-                  "18px",
-
-                borderRadius:
-                  "14px",
-
-                background:
-                  "rgba(255,255,255,0.03)",
-
-                border:
-                  "1px solid rgba(255,255,255,0.06)",
-              }}
-            >
-
-              <span
-                style={{
-                  display:
-                    "block",
-
-                  color: "#888",
-
-                  fontSize:
-                    "12px",
-
-                  marginBottom:
-                    "8px",
-                }}
-              >
-                OPTIONS
-              </span>
-
-              <strong
-                style={{
-                  fontSize:
-                    "25px",
-                }}
-              >
-                4
-              </strong>
-
-              <p
-                style={{
-                  margin:
-                    "5px 0 0",
-
-                  color: "#888",
-
-                  fontSize:
-                    "13px",
-                }}
-              >
-                Per question
-              </p>
-
-            </div>
-
-          </div>
-
-          <div
-            style={{
-              marginTop:
-                "16px",
-
-              padding:
-                "14px 16px",
-
-              borderRadius:
-                "12px",
-
-              background:
-                "rgba(180,20,40,0.08)",
-
-              border:
-                "1px solid rgba(180,20,40,0.2)",
-
-              color: "#aaa",
-
-              fontSize:
-                "13px",
-            }}
-          >
-            ◉ Every new attempt
-            generates a fresh set of
-            questions from your
-            learning material.
-          </div>
-
-        </div>
-
-        {/* DATA MANAGEMENT */}
-
-        <div
-          className="settings-card"
-          style={{
-            marginBottom:
-              "18px",
-
-            display: "block",
-          }}
-        >
-
-          <div
-            style={{
-              marginBottom:
-                "20px",
-            }}
-          >
-
-            <p className="eyebrow">
-              DATA
-            </p>
-
-            <h3>
-              Data management
-            </h3>
-
-            <p>
-              Manage the information
-              stored locally by StudyMate.
-            </p>
-
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-
-              justifyContent:
-                "space-between",
-
-              alignItems:
-                "center",
-
-              gap: "20px",
-
-              padding:
-                "16px 0",
-
-              borderTop:
-                "1px solid rgba(255,255,255,0.06)",
-            }}
-          >
-
-            <div>
-
-              <strong>
-                Test history
-              </strong>
-
-              <p
-                style={{
-                  margin:
-                    "5px 0 0",
-
-                  fontSize:
-                    "13px",
-
-                  color: "#888",
-                }}
-              >
-                {testHistory.length}{" "}
-                saved{" "}
-                {testHistory.length ===
-                1
-                  ? "attempt"
-                  : "attempts"}
-              </p>
-
-            </div>
-
-            <button
-              className="secondary-button"
-              onClick={
-                handleClearHistory
-              }
-              disabled={
-                testHistory.length ===
-                0
-              }
-              style={{
-                color:
-                  testHistory.length ===
-                  0
-                    ? "#666"
-                    : "#fff",
-              }}
-            >
-              Clear History
-            </button>
-
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-
-              justifyContent:
-                "space-between",
-
-              alignItems:
-                "center",
-
-              gap: "20px",
-
-              padding:
-                "16px 0",
-
-              borderTop:
-                "1px solid rgba(255,255,255,0.06)",
-            }}
-          >
-
-            <div>
-
-              <strong>
-                Reset StudyMate
-              </strong>
-
-              <p
-                style={{
-                  margin:
-                    "5px 0 0",
-
-                  fontSize:
-                    "13px",
-
-                  color: "#888",
-                }}
-              >
-                Delete all units,
-                notes, history and
-                saved preferences.
-              </p>
-
-            </div>
-
-            <button
-              type="button"
-              onClick={
-                handleResetStudyMate
-              }
-              style={{
-                padding:
-                  "10px 15px",
-
-                borderRadius:
-                  "10px",
-
-                border:
-                  "1px solid rgba(220,40,60,0.35)",
-
-                background:
-                  "rgba(220,40,60,0.08)",
-
-                color:
-                  "#ff7d8d",
-
-                cursor:
-                  "pointer",
-
-                fontWeight:
-                  "600",
-              }}
-            >
-              Reset Data
-            </button>
-
-          </div>
-
-        </div>
-
-        {/* =====================================
-            ITACHI SHARINGAN ARCHIVE
-        ===================================== */}
-
-        <div
-          className="settings-card"
-          style={{
-            marginBottom:
-              "18px",
-
-            display:
-              "block",
-
-            position:
-              "relative",
-
-            overflow:
-              "hidden",
-
-            border:
-              "1px solid rgba(180, 20, 40, 0.35)",
-
-            background:
-              "radial-gradient(circle at 90% 10%, rgba(120, 10, 25, 0.18), transparent 35%), #111",
-          }}
-        >
-
-          {/* DECORATIVE SHARINGAN CIRCLES */}
-
-          <div
-            style={{
-              position:
-                "absolute",
-
-              width:
-                "140px",
-
-              height:
-                "140px",
-
-              right:
-                "-60px",
-
-              top:
-                "-60px",
-
-              border:
-                "2px solid rgba(180,20,40,0.12)",
-
-              borderRadius:
-                "50%",
-            }}
-          />
-
-          <div
-            style={{
-              position:
-                "absolute",
-
-              width:
-                "90px",
-
-              height:
-                "90px",
-
-              right:
-                "-35px",
-
-              top:
-                "-35px",
-
-              border:
-                "1px solid rgba(180,20,40,0.16)",
-
-              borderRadius:
-                "50%",
-            }}
-          />
-
-          {/* HEADER */}
-
-          <div
-            style={{
-              position:
-                "relative",
-
-              zIndex:
-                2,
-
-              display:
-                "flex",
-
-              alignItems:
-                "center",
-
-              gap:
-                "16px",
-
-              marginBottom:
-                "22px",
-            }}
-          >
-
-            <div
-              style={{
-                width:
-                  "52px",
-
-                height:
-                  "52px",
-
-                minWidth:
-                  "52px",
-
-                borderRadius:
-                  "50%",
-
-                display:
-                  "flex",
-
-                alignItems:
-                  "center",
-
-                justifyContent:
-                  "center",
-
-                border:
-                  "2px solid #8f1728",
-
-                color:
-                  "#d52b40",
-
-                fontSize:
-                  "25px",
-
-                boxShadow:
-                  "0 0 18px rgba(170,20,35,0.25)",
-              }}
-            >
-              ◉
-            </div>
-
-            <div>
-
-              <p
-                className="eyebrow"
-                style={{
-                  marginBottom:
-                    "5px",
-                }}
-              >
-                SHARINGAN ARCHIVE
-              </p>
-
-              <h3
-                style={{
-                  margin:
-                    0,
-
-                  fontSize:
-                    "20px",
-
-                  color:
-                    "#f1f1f1",
-                }}
-              >
-                Itachi Uchiha — The Shinobi Who Chose Sacrifice
-              </h3>
-
-            </div>
-
-          </div>
-
-          {/* QUOTE */}
-
-          <div
-            style={{
-              position:
-                "relative",
-
-              zIndex:
-                2,
-
-              marginBottom:
-                "20px",
-
-              paddingLeft:
-                "18px",
-
-              borderLeft:
-                "3px solid #8f1728",
-            }}
-          >
-
-            <p
-              style={{
-                margin:
-                  0,
-
-                color:
-                  "#aaa",
-
-                fontSize:
-                  "15px",
-
-                lineHeight:
-                  "1.7",
-
-                fontStyle:
-                  "italic",
-              }}
-            >
-              “Sometimes the person who looks like the villain is carrying the heaviest burden.”
-            </p>
-
-          </div>
-
-          {/* FAN NOTE */}
-
-          <div
-            style={{
-              position:
-                "relative",
-
-              zIndex:
-                2,
-
-              display:
-                "flex",
-
-              alignItems:
-                "center",
-
-              gap:
-                "10px",
-
-              padding:
-                "14px 16px",
-
-              borderRadius:
-                "10px",
-
-              background:
-                "rgba(120,10,25,0.12)",
-
-              border:
-                "1px solid rgba(150,20,35,0.25)",
-            }}
-          >
-
-            <span
-              style={{
-                fontSize:
-                  "21px",
-              }}
-            >
-              🐦‍⬛
-            </span>
-
-            <p
-              style={{
-                margin:
-                  0,
-
-                color:
-                  "#999",
-
-                fontSize:
-                  "14px",
-              }}
-            >
-              Dedicated to{" "}
-              <strong
-                style={{
-                  color:
-                    "#d52b40",
-                }}
-              >
-                Warren
-              </strong>{" "}
-              — Itachi's{" "}
-              <strong
-                style={{
-                  color:
-                    "#d52b40",
-                }}
-              >
-                #1 Fan.
-              </strong>
-            </p>
-
-          </div>
-
-        </div>
-
-        {/* ABOUT */}
-
-        <div
-          className="settings-card"
-          style={{
-            display:
-              "block",
-          }}
-        >
-
-          <div
-            style={{
-              display:
-                "flex",
-
-              alignItems:
-                "center",
-
-              gap:
-                "15px",
-            }}
-          >
-
-            <div
-              style={{
-                width:
-                  "48px",
-
-                height:
-                  "48px",
-
-                borderRadius:
-                  "14px",
-
-                display:
-                  "flex",
-
-                alignItems:
-                  "center",
-
-                justifyContent:
-                  "center",
-
-                background:
-                  "rgba(180,20,40,0.14)",
-
-                border:
-                  "1px solid rgba(220,40,60,0.25)",
-
-                fontWeight:
-                  "800",
-
-                color:
-                  "#ff687a",
-              }}
-            >
-              S
-            </div>
-
-            <div>
-
-              <h3>
-                StudyMate
-              </h3>
-
-              <p>
-                Study with precision.
-              </p>
-
-            </div>
-
-            <span
-              style={{
-                marginLeft:
-                  "auto",
-
-                color:
-                  "#777",
-
-                fontSize:
-                  "12px",
-              }}
-            >
-              v1.0
-            </span>
-
-          </div>
-
-          <div
-            style={{
-              marginTop:
-                "18px",
-
-              paddingTop:
-                "18px",
-
-              borderTop:
-                "1px solid rgba(255,255,255,0.06)",
-            }}
-          >
-
-            <p
-              style={{
-                color:
-                  "#888",
-
-                fontSize:
-                  "13px",
-
-                lineHeight:
-                  "1.7",
-
-                margin:
-                  0,
-              }}
-            >
-              StudyMate is your personal
-              study system for turning
-              lecture material into clear
-              revision notes and focused
-              practice tests.
-            </p>
-
-          </div>
-
-        </div>
-
+          );
+        })}
       </div>
-    );
+    )}
+  </main>
+);
 
-  // =======================================
-  // RETURN
-  // =======================================
 
-  return (
-    <div className="app">
+};
 
-      {/* SIDEBAR */}
+/* =======================================================
+SETTINGS SCREEN
+======================================================= */
 
-      <aside className="sidebar">
+const updateSetting = (
+settingName,
+value
+) => {
+setSettings((previous) => ({
+...previous,
+[settingName]: value,
+}));
+};
 
-        <div className="brand">
+const renderSettings = () => {
+return (
+<main
+style={{
+maxWidth: "900px",
+margin: "0 auto",
+padding: "40px 20px 70px",
+}}
+>
+<div
+style={{
+marginBottom: "30px",
+}}
+>
+<p
+className="eyebrow"
+style={{ marginBottom: "7px" }}
+>
+PREFERENCES </p>
 
-          <div className="brand-symbol">
-            S
-          </div>
 
+      <h1
+        style={{
+          margin: 0,
+          fontSize: "clamp(32px, 5vw, 46px)",
+          letterSpacing: "-1.5px",
+        }}
+      >
+        Settings
+      </h1>
+
+      <p
+        style={{
+          marginTop: "10px",
+          color: itachiMode
+            ? "#999999"
+            : "#64748b",
+        }}
+      >
+        Customize your StudyMate experience.
+      </p>
+    </div>
+
+    <div
+      style={{
+        display: "grid",
+        gap: "15px",
+      }}
+    >
+      <section style={cardStyle}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "20px",
+          }}
+        >
           <div>
-
-            <h1>
-              StudyMate
-            </h1>
-
-            <span>
-              Study with precision
-            </span>
-
-          </div>
-
-        </div>
-
-        <nav className="navigation">
-
-          <button
-            className={`nav-item ${
-              activePage ===
-              "Dashboard"
-                ? "active"
-                : ""
-            }`}
-            onClick={() =>
-              setActivePage(
-                "Dashboard"
-              )
-            }
-          >
-
-            <span className="nav-icon">
-              ◆
-            </span>
-
-            <span>
-              Dashboard
-            </span>
-
-          </button>
-
-          <button
-            className={`nav-item ${
-              activePage ===
-                "Units" ||
-              activePage ===
-                "Unit"
-                ? "active"
-                : ""
-            }`}
-            onClick={() =>
-              setActivePage(
-                "Units"
-              )
-            }
-          >
-
-            <span className="nav-icon">
-              ◈
-            </span>
-
-            <span>
-              Units
-            </span>
-
-          </button>
-
-          <button
-            className={`nav-item ${
-              activePage ===
-                "Tests" ||
-              activePage ===
-                "Test"
-                ? "active"
-                : ""
-            }`}
-            onClick={() =>
-              setActivePage(
-                "Tests"
-              )
-            }
-          >
-
-            <span className="nav-icon">
-              ◉
-            </span>
-
-            <span>
-              Tests
-            </span>
-
-          </button>
-
-          <button
-            className={`nav-item ${
-              activePage ===
-              "History"
-                ? "active"
-                : ""
-            }`}
-            onClick={() =>
-              setActivePage(
-                "History"
-              )
-            }
-          >
-
-            <span className="nav-icon">
-              ↗
-            </span>
-
-            <span>
-              History
-            </span>
-
-          </button>
-
-          <button
-            className={`nav-item ${
-              activePage ===
-              "Settings"
-                ? "active"
-                : ""
-            }`}
-            onClick={() =>
-              setActivePage(
-                "Settings"
-              )
-            }
-          >
-
-            <span className="nav-icon">
-              ⚙
-            </span>
-
-            <span>
-              Settings
-            </span>
-
-          </button>
-
-        </nav>
-
-        <div className="sidebar-bottom">
-
-          <div className="study-message">
-
-            <span className="message-symbol">
-              ◆
-            </span>
-
-            <div>
-
-              <strong>
-                Stay focused.
-              </strong>
-
-              <p>
-                Understand.
-                Practice.
-                Master.
-              </p>
-
-            </div>
-
-          </div>
-
-        </div>
-
-      </aside>
-
-      {/* MAIN */}
-
-      <main className="main-content">
-
-        <header className="topbar">
-
-          <span className="page-label">
-            {activePage ===
-            "Test"
-              ? "Test Center"
-              : activePage}
-          </span>
-
-          <div className="profile">
-
-            <div className="profile-avatar">
-              W
-            </div>
-
-            <div className="profile-info">
-
-              <strong>
-                Student
-              </strong>
-
-              <span>
-                StudyMate
-              </span>
-
-            </div>
-
-          </div>
-
-        </header>
-
-        {renderPage()}
-
-      </main>
-
-      {/* ADD UNIT MODAL */}
-
-      {showAddUnit && (
-
-        <div className="modal-overlay">
-
-          <div className="modal">
-
-            <button
-              className="modal-close"
-              onClick={() =>
-                setShowAddUnit(
-                  false
-                )
-              }
+            <h2
+              style={{
+                margin: "0 0 6px",
+                fontSize: "19px",
+              }}
             >
-              ×
-            </button>
-
-            <p className="eyebrow">
-              NEW UNIT
-            </p>
-
-            <h2>
-              Add a Unit
+              Sound effects
             </h2>
 
-            <p>
-              Give your study unit a name.
-            </p>
-
-            <input
-              type="text"
-              placeholder="e.g. EET101 Electronics"
-              value={
-                newUnitName
-              }
-              onChange={(
-                event
-              ) =>
-                setNewUnitName(
-                  event.target
-                    .value
-                )
-              }
-              onKeyDown={(
-                event
-              ) => {
-
-                if (
-                  event.key ===
-                  "Enter"
-                ) {
-                  handleAddUnit();
-                }
-
+            <p
+              style={{
+                margin: 0,
+                color: itachiMode
+                  ? "#999999"
+                  : "#64748b",
+                lineHeight: 1.5,
               }}
-              autoFocus
-            />
-
-            <div className="modal-actions">
-
-              <button
-                className="secondary-button"
-                onClick={() =>
-                  setShowAddUnit(
-                    false
-                  )
-                }
-              >
-                Cancel
-              </button>
-
-              <button
-                className="primary-button"
-                onClick={
-                  handleAddUnit
-                }
-              >
-                Create Unit
-              </button>
-
-            </div>
-
+            >
+              Enable sounds for important study
+              actions.
+            </p>
           </div>
 
+          <button
+            type="button"
+            onClick={() =>
+              updateSetting(
+                "sound",
+                !settings.sound
+              )
+            }
+            style={{
+              width: "58px",
+              height: "32px",
+              border: "none",
+              borderRadius: "99px",
+              cursor: "pointer",
+              background: settings.sound
+                ? "#111827"
+                : "#cbd5e1",
+              position: "relative",
+              flexShrink: 0,
+            }}
+            aria-label="Toggle sound"
+          >
+            <span
+              style={{
+                position: "absolute",
+                top: "4px",
+                left: settings.sound
+                  ? "30px"
+                  : "4px",
+                width: "24px",
+                height: "24px",
+                borderRadius: "50%",
+                background: "#ffffff",
+                transition:
+                  "left 0.2s ease",
+              }}
+            />
+          </button>
         </div>
+      </section>
 
-      )}
+      <section style={cardStyle}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "20px",
+          }}
+        >
+          <div>
+            <h2
+              style={{
+                margin: "0 0 6px",
+                fontSize: "19px",
+              }}
+            >
+              Animations
+            </h2>
 
+            <p
+              style={{
+                margin: 0,
+                color: itachiMode
+                  ? "#999999"
+                  : "#64748b",
+                lineHeight: 1.5,
+              }}
+            >
+              Enable interface animations.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() =>
+              updateSetting(
+                "animations",
+                !settings.animations
+              )
+            }
+            style={{
+              width: "58px",
+              height: "32px",
+              border: "none",
+              borderRadius: "99px",
+              cursor: "pointer",
+              background:
+                settings.animations
+                  ? "#111827"
+                  : "#cbd5e1",
+              position: "relative",
+              flexShrink: 0,
+            }}
+            aria-label="Toggle animations"
+          >
+            <span
+              style={{
+                position: "absolute",
+                top: "4px",
+                left: settings.animations
+                  ? "30px"
+                  : "4px",
+                width: "24px",
+                height: "24px",
+                borderRadius: "50%",
+                background: "#ffffff",
+                transition:
+                  "left 0.2s ease",
+              }}
+            />
+          </button>
+        </div>
+      </section>
+
+      <section style={cardStyle}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "20px",
+            flexWrap: "wrap",
+          }}
+        >
+          <div>
+            <h2
+              style={{
+                margin: "0 0 6px",
+                fontSize: "19px",
+              }}
+            >
+              Itachi mode
+            </h2>
+
+            <p
+              style={{
+                margin: 0,
+                color: itachiMode
+                  ? "#999999"
+                  : "#64748b",
+                lineHeight: 1.5,
+              }}
+            >
+              Switch to the dark Sharingan-inspired
+              StudyMate appearance.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={toggleItachiMode}
+            style={{
+              ...buttonStyle,
+              background: itachiMode
+                ? "#ffffff"
+                : "#111827",
+              color: itachiMode
+                ? "#111111"
+                : "#ffffff",
+            }}
+          >
+            {itachiMode
+              ? "Disable mode"
+              : "Enable mode"}
+          </button>
+        </div>
+      </section>
+
+      <section
+        style={{
+          ...cardStyle,
+          borderColor: "#fecaca",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "20px",
+            flexWrap: "wrap",
+          }}
+        >
+          <div>
+            <h2
+              style={{
+                margin: "0 0 6px",
+                fontSize: "19px",
+              }}
+            >
+              Reset StudyMate
+            </h2>
+
+            <p
+              style={{
+                margin: 0,
+                color: itachiMode
+                  ? "#999999"
+                  : "#64748b",
+                lineHeight: 1.5,
+              }}
+            >
+              Delete saved units, test history,
+              and preferences from this browser.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={
+              handleResetStudyMate
+            }
+            style={{
+              ...buttonStyle,
+              background: "#fee2e2",
+              color: "#991b1b",
+              border:
+                "1px solid #fecaca",
+            }}
+          >
+            Reset data
+          </button>
+        </div>
+      </section>
     </div>
-  );
+  </main>
+);
+
+
+};
+
+/* =======================================================
+FOOTER
+======================================================= */
+
+const renderFooter = () => {
+return (
+<footer
+style={{
+maxWidth: "1200px",
+margin: "0 auto",
+padding: "30px 20px 40px",
+borderTop: itachiMode
+? "1px solid #252525"
+: "1px solid #e5e7eb",
+color: itachiMode
+? "#777777"
+: "#94a3b8",
+fontSize: "13px",
+textAlign: "center",
+}}
+>
+<p style={{ margin: 0 }}>
+StudyMate · Learn smarter. Practice better. </p> </footer>
+);
+};
+
+/* =======================================================
+MAIN APPLICATION RENDER
+======================================================= */
+
+if (!isAuthenticated) {
+return ( <div style={pageStyle}>
+{renderAuthScreen()} </div>
+);
+}
+
+return (
+<div
+style={{
+...pageStyle,
+display: "flex",
+flexDirection: "column",
+}}
+>
+{renderNavbar()}
+
+  {renderMessages()}
+
+  <div
+    style={{
+      flex: 1,
+    }}
+  >
+    {screen === "dashboard" &&
+      renderDashboard()}
+
+    {screen === "units" &&
+      renderUnits()}
+
+    {screen === "unit" &&
+      renderUnit()}
+
+    {screen === "test" &&
+      renderTest()}
+
+    {screen === "result" &&
+      renderResult()}
+
+    {screen === "review" &&
+      renderReview()}
+
+    {screen === "history" &&
+      renderHistory()}
+
+    {screen === "settings" &&
+      renderSettings()}
+  </div>
+
+  {renderFooter()}
+</div>
+
+);
 }
 
 export default App;
