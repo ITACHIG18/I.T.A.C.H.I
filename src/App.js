@@ -2098,164 +2098,7 @@ setNewUnitName("");
 
 
 };
-    {/* =======================================================
-        AI SHORT NOTES
-        ======================================================= */}
 
-    <section
-      style={{
-        ...cardStyle,
-        marginTop: "20px",
-        marginBottom: "20px",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: "15px",
-          flexWrap: "wrap",
-          marginBottom: "18px",
-        }}
-      >
-        <div>
-          <p
-            className="eyebrow"
-            style={{
-              marginBottom: "5px",
-              color: itachiMode
-                ? "#ff3333"
-                : undefined,
-            }}
-          >
-            AI STUDY ASSISTANT
-          </p>
-
-          <h2 style={{ margin: 0 }}>
-            Generate Short Notes
-          </h2>
-        </div>
-
-        <span
-          style={{
-            fontSize: "28px",
-          }}
-        >
-          ✨
-        </span>
-      </div>
-
-      <p
-        style={{
-          margin: "0 0 18px",
-          lineHeight: 1.6,
-          color: itachiMode
-            ? "#999999"
-            : "#64748b",
-        }}
-      >
-        Let AI turn your study material into
-        short, easy-to-revise notes.
-      </p>
-
-      <button
-        type="button"
-        onClick={generateShortNotes}
-        disabled={aiNotesLoading}
-        style={{
-          ...buttonStyle,
-          width: "100%",
-          padding: "14px 18px",
-          background: itachiMode
-            ? "linear-gradient(135deg, #ff1a1a, #8b0000)"
-            : "#111827",
-          color: "#ffffff",
-          opacity: aiNotesLoading ? 0.7 : 1,
-          cursor: aiNotesLoading
-            ? "not-allowed"
-            : "pointer",
-          boxShadow: itachiMode
-            ? "0 0 18px rgba(255,0,0,0.3)"
-            : "none",
-        }}
-      >
-        {aiNotesLoading
-          ? "✨ Generating short notes..."
-          : "✨ Generate Short Notes"}
-      </button>
-
-      {aiNotesError && (
-        <div
-          style={{
-            marginTop: "15px",
-            padding: "12px 14px",
-            borderRadius: "10px",
-            background: itachiMode
-              ? "#2a1111"
-              : "#fef2f2",
-            color: itachiMode
-              ? "#ffb4b4"
-              : "#b91c1c",
-            border: "1px solid",
-            borderColor: itachiMode
-              ? "#5b2222"
-              : "#fecaca",
-            fontSize: "14px",
-          }}
-        >
-          {aiNotesError}
-        </div>
-      )}
-
-      {aiNotes && (
-        <div
-          style={{
-            marginTop: "20px",
-            padding: "20px",
-            borderRadius: "14px",
-            background: itachiMode
-              ? "#100505"
-              : "#f8fafc",
-            border: itachiMode
-              ? "1px solid #4d0000"
-              : "1px solid #e2e8f0",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              marginBottom: "14px",
-            }}
-          >
-            <span style={{ fontSize: "22px" }}>
-              📚
-            </span>
-
-            <h3
-              style={{
-                margin: 0,
-                fontSize: "19px",
-              }}
-            >
-              AI Short Notes
-            </h3>
-          </div>
-
-          <div
-            style={{
-              whiteSpace: "pre-wrap",
-              lineHeight: 1.7,
-              fontSize: "15px",
-            }}
-          >
-            {aiNotes}
-          </div>
-        </div>
-      )}
-    </section>
 
 const renderUnits = () => {
 return (
@@ -2834,6 +2677,168 @@ return (
             📄
           </span>
         </div>
+
+         
+  {/* ======================================================= 
+        AI SHORT NOTES 
+        ======================================================= */} 
+ 
+    <section 
+      style={{ 
+        ...cardStyle, 
+        marginTop: "20px", 
+        marginBottom: "20px", 
+      }} 
+    > 
+      <div 
+        style={{ 
+          display: "flex", 
+          justifyContent: "space-between", 
+          alignItems: "center", 
+          gap: "15px", 
+          flexWrap: "wrap", 
+          marginBottom: "18px", 
+        }} 
+      > 
+        <div> 
+          <p 
+            className="eyebrow" 
+            style={{ 
+              marginBottom: "5px", 
+              color: itachiMode 
+                ? "#ff3333" 
+                : undefined, 
+            }} 
+          > 
+            AI STUDY ASSISTANT 
+          </p> 
+ 
+          <h2 style={{ margin: 0 }}> 
+            Generate Short Notes 
+          </h2> 
+        </div> 
+ 
+        <span 
+          style={{ 
+            fontSize: "28px", 
+          }} 
+        > 
+          ✨ 
+        </span> 
+      </div> 
+ 
+      <p 
+        style={{ 
+          margin: "0 0 18px", 
+          lineHeight: 1.6, 
+          color: itachiMode 
+            ? "#999999" 
+            : "#64748b", 
+        }} 
+      > 
+        Let AI turn your study material into 
+        short, easy-to-revise notes. 
+      </p> 
+ 
+      <button 
+        type="button" 
+        onClick={generateShortNotes} 
+        disabled={aiNotesLoading} 
+        style={{ 
+          ...buttonStyle, 
+          width: "100%", 
+          padding: "14px 18px", 
+          background: itachiMode 
+            ? "linear-gradient(135deg, #ff1a1a, #8b0000)" 
+            : "#111827", 
+          color: "#ffffff", 
+          opacity: aiNotesLoading ? 0.7 : 1, 
+          cursor: aiNotesLoading 
+            ? "not-allowed" 
+            : "pointer", 
+          boxShadow: itachiMode 
+            ? "0 0 18px rgba(255,0,0,0.3)" 
+            : "none", 
+        }} 
+      > 
+        {aiNotesLoading 
+          ? "✨ Generating short notes..." 
+          : "✨ Generate Short Notes"} 
+      </button> 
+ 
+      {aiNotesError && ( 
+        <div 
+          style={{ 
+            marginTop: "15px", 
+            padding: "12px 14px", 
+            borderRadius: "10px", 
+            background: itachiMode 
+              ? "#2a1111" 
+              : "#fef2f2", 
+            color: itachiMode 
+              ? "#ffb4b4" 
+              : "#b91c1c", 
+            border: "1px solid", 
+            borderColor: itachiMode 
+              ? "#5b2222" 
+              : "#fecaca", 
+            fontSize: "14px", 
+          }} 
+        > 
+          {aiNotesError} 
+        </div> 
+      )} 
+ 
+      {aiNotes && ( 
+        <div 
+          style={{ 
+            marginTop: "20px", 
+            padding: "20px", 
+            borderRadius: "14px", 
+            background: itachiMode 
+              ? "#100505" 
+              : "#f8fafc", 
+            border: itachiMode 
+              ? "1px solid #4d0000" 
+              : "1px solid #e2e8f0", 
+          }} 
+        > 
+          <div 
+            style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              gap: "10px", 
+              marginBottom: "14px", 
+            }} 
+          > 
+            <span style={{ fontSize: "22px" }}> 
+              📚 
+            </span> 
+ 
+            <h3 
+              style={{ 
+                margin: 0, 
+                fontSize: "19px", 
+              }} 
+            > 
+              AI Short Notes 
+            </h3> 
+          </div> 
+ 
+          <div 
+            style={{ 
+              whiteSpace: "pre-wrap", 
+              lineHeight: 1.7, 
+              fontSize: "15px", 
+            }} 
+          > 
+            {aiNotes} 
+          </div> 
+        </div> 
+      )} 
+    </section> 
+ 
+
 
         <label
           style={{
