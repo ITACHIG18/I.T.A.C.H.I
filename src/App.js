@@ -10,6 +10,10 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [notesTopic, setNotesTopic] = useState("");
+  const [shortNotes, setShortNotes] = useState("");
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [notesError, setNotesError] = useState("");
 
   const [units, setUnits] = useState(() => {
     try {
@@ -35,6 +39,9 @@ function App() {
   const [extractedText, setExtractedText] = useState("");
 
   const [studyNotes, setStudyNotes] = useState("");
+  const [aiNotes, setAiNotes] = useState("");
+  const [aiNotesLoading, setAiNotesLoading] = useState(false);
+  const [aiNotesError, setAiNotesError] = useState("");
 
   const [testQuestions, setTestQuestions] = useState([]);
   const [testAnswers, setTestAnswers] = useState({});
@@ -2091,6 +2098,164 @@ setNewUnitName("");
 
 
 };
+    {/* =======================================================
+        AI SHORT NOTES
+        ======================================================= */}
+
+    <section
+      style={{
+        ...cardStyle,
+        marginTop: "20px",
+        marginBottom: "20px",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: "15px",
+          flexWrap: "wrap",
+          marginBottom: "18px",
+        }}
+      >
+        <div>
+          <p
+            className="eyebrow"
+            style={{
+              marginBottom: "5px",
+              color: itachiMode
+                ? "#ff3333"
+                : undefined,
+            }}
+          >
+            AI STUDY ASSISTANT
+          </p>
+
+          <h2 style={{ margin: 0 }}>
+            Generate Short Notes
+          </h2>
+        </div>
+
+        <span
+          style={{
+            fontSize: "28px",
+          }}
+        >
+          ✨
+        </span>
+      </div>
+
+      <p
+        style={{
+          margin: "0 0 18px",
+          lineHeight: 1.6,
+          color: itachiMode
+            ? "#999999"
+            : "#64748b",
+        }}
+      >
+        Let AI turn your study material into
+        short, easy-to-revise notes.
+      </p>
+
+      <button
+        type="button"
+        onClick={generateShortNotes}
+        disabled={aiNotesLoading}
+        style={{
+          ...buttonStyle,
+          width: "100%",
+          padding: "14px 18px",
+          background: itachiMode
+            ? "linear-gradient(135deg, #ff1a1a, #8b0000)"
+            : "#111827",
+          color: "#ffffff",
+          opacity: aiNotesLoading ? 0.7 : 1,
+          cursor: aiNotesLoading
+            ? "not-allowed"
+            : "pointer",
+          boxShadow: itachiMode
+            ? "0 0 18px rgba(255,0,0,0.3)"
+            : "none",
+        }}
+      >
+        {aiNotesLoading
+          ? "✨ Generating short notes..."
+          : "✨ Generate Short Notes"}
+      </button>
+
+      {aiNotesError && (
+        <div
+          style={{
+            marginTop: "15px",
+            padding: "12px 14px",
+            borderRadius: "10px",
+            background: itachiMode
+              ? "#2a1111"
+              : "#fef2f2",
+            color: itachiMode
+              ? "#ffb4b4"
+              : "#b91c1c",
+            border: "1px solid",
+            borderColor: itachiMode
+              ? "#5b2222"
+              : "#fecaca",
+            fontSize: "14px",
+          }}
+        >
+          {aiNotesError}
+        </div>
+      )}
+
+      {aiNotes && (
+        <div
+          style={{
+            marginTop: "20px",
+            padding: "20px",
+            borderRadius: "14px",
+            background: itachiMode
+              ? "#100505"
+              : "#f8fafc",
+            border: itachiMode
+              ? "1px solid #4d0000"
+              : "1px solid #e2e8f0",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              marginBottom: "14px",
+            }}
+          >
+            <span style={{ fontSize: "22px" }}>
+              📚
+            </span>
+
+            <h3
+              style={{
+                margin: 0,
+                fontSize: "19px",
+              }}
+            >
+              AI Short Notes
+            </h3>
+          </div>
+
+          <div
+            style={{
+              whiteSpace: "pre-wrap",
+              lineHeight: 1.7,
+              fontSize: "15px",
+            }}
+          >
+            {aiNotes}
+          </div>
+        </div>
+      )}
+    </section>
 
 const renderUnits = () => {
 return (
@@ -2391,6 +2556,50 @@ if (selectedUnit) {
 }
 
 
+};
+
+const generateShortNotes = async () => {
+  setAiNotesError("");
+
+  if (!selectedUnit) {
+    setAiNotesError("Please select a study unit first.");
+    return;
+  }
+
+  const sourceText =
+    extractedText.trim() ||
+    studyNotes.trim();
+
+  if (!sourceText) {
+    setAiNotesError(
+      "Please add some study material or notes first."
+    );
+    return;
+  }
+
+  setAiNotesLoading(true);
+  setAiNotes("");
+
+  try {
+    const response = await axios.post(
+      `${API_URL}/ai/short-notes`,
+      {
+        text: sourceText,
+        topic: selectedUnit.name,
+      }
+    );
+
+    setAiNotes(response.data.notes || "");
+  } catch (error) {
+    console.error("AI short notes error:", error);
+
+    setAiNotesError(
+      error.response?.data?.error ||
+        "Unable to generate short notes. Please try again."
+    );
+  } finally {
+    setAiNotesLoading(false);
+  }
 };
 
 const handleUnitPdfSave = () => {
