@@ -361,6 +361,7 @@ const handleLogin = async (event) => {
   }
 };
 
+
 const handleRegister = async (event) => {
   event.preventDefault();
 
@@ -394,17 +395,40 @@ const handleRegister = async (event) => {
       }
     );
 
-    const email =
-      response.data?.email ||
-      authForm.email.trim();
+    const token = response.data?.token;
+    const user = response.data?.user;
 
-    setVerificationEmail(email);
-    setVerificationCode("");
-    setShowVerification(true);
+    if (!token) {
+      showError(
+        "Account was created, but no authentication token was returned."
+      );
+      return;
+    }
+
+    localStorage.setItem(
+      "studymate_token",
+      token
+    );
+
+    if (user) {
+      localStorage.setItem(
+        "studymate_user",
+        JSON.stringify(user)
+      );
+    }
+
+    localStorage.setItem(
+      "studymate_authenticated",
+      "true"
+    );
+
+    setIsAuthenticated(true);
+    setScreen("dashboard");
 
     showMessage(
-      response.data?.message ||
-        "Account created successfully. Check your email for the verification code."
+      `Account created successfully${
+        user?.name ? `, welcome ${user.name}` : ""
+      }.`
     );
 
   } catch (error) {
@@ -422,6 +446,7 @@ const handleRegister = async (event) => {
     setAuthLoading(false);
   }
 };
+
 const handleVerifyEmail = async (event) => {
   event.preventDefault();
 
@@ -562,6 +587,22 @@ const savedUser = localStorage.getItem(
 };
 
 const currentUser = getCurrentUser();
+
+/* =======================================================
+AUTHENTICATED API HEADERS
+======================================================= */
+
+const getAuthHeaders = () => {
+  const token = localStorage.getItem("studymate_token");
+
+  if (!token) {
+    return {};
+  }
+
+  return {
+    Authorization: `Bearer ${token}`,
+  };
+};
 
 /* =======================================================
 SIMPLE NAVIGATION
@@ -876,12 +917,13 @@ const handlePdfChange = async (event) => {
 
     formData.append("file", file);
 
-    const response = await axios.post(
+  const response = await axios.post(
   `${API_URL}/upload-pdf`,
   formData,
   {
     headers: {
       "Content-Type": "multipart/form-data",
+      ...getAuthHeaders(),
     },
   }
 );
@@ -2803,10 +2845,9 @@ const generateShortNotes = async () => {
     }
 
     const response = await axios.post(
-      `${API_URL}/ai/short-notes`,
+      `${API_URL}/generate-notes`,
       {
         text: extractedText,
-        topic: selectedUnit.name,
       },
       {
         headers: {
@@ -3347,31 +3388,115 @@ return (
         </div>
 
         <button
-          type="button"
-          onClick={() => {
-            showError(
-              "Test generation will be connected to your backend in the next section."
-            );
-          }}
-          style={{
-            ...buttonStyle,
-            padding: "14px 20px",
-            background: itachiMode
-              ? "#ffffff"
-              : "#111827",
-            color: itachiMode
-              ? "#111111"
-              : "#ffffff",
-          }}
-        >
-          Start test →
-        </button>
+  type="button"
+  onClick={generateTest}
+  style={{
+    ...buttonStyle,
+    padding: "14px 20px",
+    background: itachiMode
+      ? "#ffffff"
+      : "#111827",
+    color: itachiMode
+      ? "#111111"
+      : "#ffffff",
+  }}
+>
+  Start test →
+</button>
+
       </div>
     </section>
   </main>
 );
 
 
+};
+/* =======================================================
+GENERATE TEST
+======================================================= */
+
+const generateTest = async () => {
+  setError("");
+
+  if (!selectedUnit) {
+    setError("Please select a study unit first.");
+    return;
+  }
+
+  if (!extractedText.trim()) {
+    setError(
+      "Please upload and process a PDF first."
+    );
+    return;
+  }
+
+  try {
+    const token = localStorage.getItem(
+      "studymate_token"
+    );
+
+    if (!token) {
+      setError(
+        "Your session has expired. Please log in again."
+      );
+      return;
+    }
+
+    setLoading(true);
+
+    const previousQuestions = testQuestions.map(
+      (question) =>
+        question.question ||
+        question.text ||
+        ""
+    );
+
+    const response = await axios.post(
+      `${API_URL}/generate-test`,
+      {
+        text: extractedText,
+        previousQuestions,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    const questions =
+      response.data?.questions || [];
+
+    if (!questions.length) {
+      setError(
+        "The AI did not generate any questions. Please try again."
+      );
+      return;
+    }
+
+    setTestQuestions(questions);
+    setTestAnswers({});
+    setCurrentQuestion(0);
+    setTestTimeLeft(TEST_DURATION);
+    setTestResult(null);
+    setTestStarted(true);
+
+    navigateTo("test");
+
+  } catch (error) {
+    console.error(
+      "Test generation error:",
+      error
+    );
+
+    setError(
+      error.response?.data?.error ||
+        "Unable to generate the test. Please try again."
+    );
+
+  } finally {
+    setLoading(false);
+  }
 };
 
 /* =======================================================
