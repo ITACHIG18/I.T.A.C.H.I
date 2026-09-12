@@ -38,7 +38,7 @@ function App() {
   const [pdfInfo, setPdfInfo] = useState(null);
   const [extractedText, setExtractedText] = useState("");
 
-  const [studyNotes, setStudyNotes] = useState("");
+  
   const [aiNotes, setAiNotes] = useState("");
   const [aiNotesLoading, setAiNotesLoading] = useState(false);
   const [aiNotesError, setAiNotesError] = useState("");
@@ -704,89 +704,77 @@ setSelectedUnit((previous) => {
 FILE HANDLING
 ======================================================= */
 
-const handlePdfChange = (event) => {
-const file = event.target.files?.[0];
+const handlePdfChange = async (event) => {
+  const file = event.target.files?.[0];
 
+  if (!file) {
+    return;
+  }
 
-if (!file) {
-  return;
-}
+  if (file.type !== "application/pdf") {
+    showError("Please select a PDF file.");
+    return;
+  }
 
-if (file.type !== "application/pdf") {
-  showError("Please select a PDF file.");
-  return;
-}
+  setPdfFile(file);
 
-setPdfFile(file);
+  setPdfInfo({
+    name: file.name,
+    size: file.size,
+    type: file.type,
+  });
 
-setPdfInfo({
-  name: file.name,
-  size: file.size,
-  type: file.type,
-});
+  setExtractedText("");
 
-clearMessages();
+  clearMessages();
 
-showMessage(
-  `"${file.name}" has been selected.`
-);
-
-
-};
-
-const removePdf = () => {
-setPdfFile(null);
-setPdfInfo(null);
-setExtractedText("");
-
-
-showMessage("PDF removed.");
-
-
-};
-
-/* =======================================================
-TEST HELPERS
-======================================================= */
-
-const resetTest = () => {
-setTestQuestions([]);
-setTestAnswers({});
-setCurrentQuestion(0);
-setTestTimeLeft(TEST_DURATION);
-setTestStarted(false);
-setTestResult(null);
-};
-
-const startTest = (questions = []) => {
-clearMessages();
-
-
-if (!questions || questions.length === 0) {
-  showError(
-    "There are no test questions available yet."
+  showMessage(
+    `"${file.name}" is being processed...`
   );
-  return;
-}
 
-setTestQuestions(questions);
-setTestAnswers({});
-setCurrentQuestion(0);
-setTestTimeLeft(TEST_DURATION);
-setTestResult(null);
-setTestStarted(true);
-setScreen("test");
+  try {
+    const formData = new FormData();
 
+    formData.append("file", file);
 
+    const response = await axios.post(
+      `${API_URL}/upload-pdf`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+
+    const extractedText =
+      response.data.text || "";
+
+    if (!extractedText.trim()) {
+      showError(
+        "The PDF was uploaded, but no readable text was found."
+      );
+      return;
+    }
+
+    setExtractedText(extractedText);
+
+    showMessage(
+      `"${file.name}" was processed successfully.`
+    );
+
+  } catch (error) {
+    console.error(
+      "PDF upload/extraction error:",
+      error
+    );
+
+    showError(
+      error.response?.data?.error ||
+        "Unable to process the PDF. Please try again."
+    );
+  }
 };
-
-const selectAnswer = (questionIndex, answer) => {
-setTestAnswers((previous) => ({
-...previous,
-[questionIndex]: answer,
-}));
-};
-
 const goToNextQuestion = () => {
 if (currentQuestion < testQuestions.length - 1) {
 setCurrentQuestion(
@@ -2386,36 +2374,21 @@ marginBottom: "15px",
 UNIT SCREEN
 ======================================================= */
 
-const handleNotesChange = (event) => {
-const value = event.target.value;
 
-
-setStudyNotes(value);
-
-if (selectedUnit) {
-  updateUnit(selectedUnit.id, {
-    notes: value,
-  });
-}
-
-
-};
 
 const generateShortNotes = async () => {
   setAiNotesError("");
 
   if (!selectedUnit) {
-    setAiNotesError("Please select a study unit first.");
+    setAiNotesError(
+      "Please select a study unit first."
+    );
     return;
   }
 
-  const sourceText =
-    extractedText.trim() ||
-    studyNotes.trim();
-
-  if (!sourceText) {
+  if (!extractedText.trim()) {
     setAiNotesError(
-      "Please add some study material or notes first."
+      "Please upload and process a PDF first."
     );
     return;
   }
@@ -2427,49 +2400,59 @@ const generateShortNotes = async () => {
     const response = await axios.post(
       `${API_URL}/ai/short-notes`,
       {
-        text: sourceText,
+        text: extractedText,
         topic: selectedUnit.name,
       }
     );
 
-    setAiNotes(response.data.notes || "");
+    setAiNotes(
+      response.data.notes || ""
+    );
+
   } catch (error) {
-    console.error("AI short notes error:", error);
+    console.error(
+      "AI short notes error:",
+      error
+    );
 
     setAiNotesError(
       error.response?.data?.error ||
         "Unable to generate short notes. Please try again."
     );
+
   } finally {
     setAiNotesLoading(false);
   }
 };
-
 const handleUnitPdfSave = () => {
-if (!selectedUnit) {
-showError("Please select a unit first.");
-return;
-}
+  if (!selectedUnit) {
+    showError("Please select a unit first.");
+    return;
+  }
 
+  if (!pdfFile) {
+    showError("Please choose a PDF file first.");
+    return;
+  }
 
-if (!pdfFile) {
-  showError("Please choose a PDF file first.");
-  return;
-}
+  if (!extractedText.trim()) {
+    showError(
+      "Please wait for the PDF to finish processing first."
+    );
+    return;
+  }
 
-updateUnit(selectedUnit.id, {
-  pdf: {
-    name: pdfFile.name,
-    size: pdfFile.size,
-    type: pdfFile.type,
-  },
-});
+  updateUnit(selectedUnit.id, {
+    pdf: {
+      name: pdfFile.name,
+      size: pdfFile.size,
+      type: pdfFile.type,
+    },
+  });
 
-showMessage(
-  `"${pdfFile.name}" has been attached to ${selectedUnit.name}.`
-);
-
-
+  showMessage(
+    `"${pdfFile.name}" has been attached to ${selectedUnit.name}.`
+  );
 };
 
 const loadSelectedUnit = () => {
@@ -2622,32 +2605,7 @@ return (
           </span>
         </div>
 
-        <textarea
-          value={studyNotes}
-          onChange={handleNotesChange}
-          placeholder="Write your study notes here..."
-          rows={12}
-          style={{
-            width: "100%",
-            boxSizing: "border-box",
-            resize: "vertical",
-            padding: "14px",
-            borderRadius: "12px",
-            border: itachiMode
-              ? "1px solid #333"
-              : "1px solid #dfe3ea",
-            background: itachiMode
-              ? "#101010"
-              : "#ffffff",
-            color: itachiMode
-              ? "#ffffff"
-              : "#171717",
-            fontFamily: "inherit",
-            fontSize: "15px",
-            lineHeight: 1.6,
-            outline: "none",
-          }}
-        />
+        
       </section>
 
       <section style={cardStyle}>
