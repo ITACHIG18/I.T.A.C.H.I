@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import "./App.css";
 
-const API_URL = "http://127.0.0.1:5000/api";
+const API_URL = "https://i-t-a-c-h-i-backend.onrender.com/api";
 const TEST_DURATION = 10 * 60;
 
 function App() {
